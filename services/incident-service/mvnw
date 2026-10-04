@@ -1,0 +1,23 @@
+#!/bin/sh
+set -eu
+
+project_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+wrapper_jar="$project_dir/.mvn/wrapper/maven-wrapper.jar"
+wrapper_url="https://repo.maven.apache.org/maven2/org/apache/maven/wrapper/maven-wrapper/3.3.2/maven-wrapper-3.3.2.jar"
+
+if [ ! -f "$wrapper_jar" ]; then
+  echo "Maven Wrapper JAR not found; downloading it from Maven Central..."
+  if command -v curl >/dev/null 2>&1; then
+    curl --fail --location --silent --show-error "$wrapper_url" --output "$wrapper_jar"
+  elif command -v wget >/dev/null 2>&1; then
+    wget --quiet "$wrapper_url" --output-document="$wrapper_jar"
+  else
+    echo "Either curl or wget is required to download the Maven Wrapper JAR." >&2
+    exit 1
+  fi
+fi
+
+exec "${JAVA_HOME:+$JAVA_HOME/bin/}java" \
+  "-Dmaven.multiModuleProjectDirectory=$project_dir" \
+  -classpath "$wrapper_jar" \
+  org.apache.maven.wrapper.MavenWrapperMain "$@"

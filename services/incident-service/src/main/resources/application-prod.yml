@@ -1,0 +1,8 @@
+spring:
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${POSTGRES_HOST}:${POSTGRES_PORT:5432}/${POSTGRES_DB}}
+    driver-class-name: org.postgresql.Driver
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+  flyway:
+    enabled: true

@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "scenarios": [
+    {
+      "name": "normal",
+      "label": "normal",
+      "description": "Baseline traffic with all AegisAI-managed fault flags set to their healthy variants.",
+      "feature_flag": null,
+      "expected_affected_services": []
+    },
+    {
+      "name": "cpu_saturation",
+      "label": "cpu_saturation",
+      "description": "High CPU load in the ad service.",
+      "feature_flag": {
+        "name": "adHighCpu",
+        "variant": "on",
+        "baseline_variant": "off"
+      },
+      "expected_affected_services": [
+        "ad"
+      ]
+    },
+    {
+      "name": "memory_leak",
+      "label": "memory_leak",
+      "description": "Amplified memory retention in the email service.",
+      "feature_flag": {
+        "name": "emailMemoryLeak",
+        "variant": "100x",
+        "baseline_variant": "off"
+      },
+      "expected_affected_services": [
+        "email"
+      ]
+    },
+    {
+      "name": "service_failure",
+      "label": "service_failure",
+      "description": "Payment charge requests fail deterministically.",
+      "feature_flag": {
+        "name": "paymentFailure",
+        "variant": "100%",
+        "baseline_variant": "off"
+      },
+      "expected_affected_services": [
+        "payment"
+      ]
+    },
+    {
+      "name": "dependency_failure",
+      "label": "dependency_failure",
+      "description": "Checkout treats the payment dependency as unreachable.",
+      "feature_flag": {
+        "name": "paymentUnreachable",
+        "variant": "on",
+        "baseline_variant": "off"
+      },
+      "expected_affected_services": [
+        "checkout",
+        "payment"
+      ]
+    },
+    {
+      "name": "high_latency",
+      "label": "high_latency",
+      "description": "Frontend requests delayed image responses through Envoy.",
+      "feature_flag": {
+        "name": "imageSlowLoad",
+        "variant": "5sec",
+        "baseline_variant": "off"
+      },
+      "expected_affected_services": [
+        "frontend",
+        "image-provider"
+      ]
+    }
+  ]
+}

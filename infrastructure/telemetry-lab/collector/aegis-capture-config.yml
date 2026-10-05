@@ -1,0 +1,27 @@
+# AegisAI file-export layer for OpenTelemetry Demo 3.1.0.
+# Loaded after the upstream src/otel-collector/otelcol-config.yml. Collector
+# multi-config merging replaces arrays, so the upstream minimal exporters are
+# repeated explicitly before the AegisAI file exporters.
+
+exporters:
+  file/traces:
+    path: /aegis-capture/traces.jsonl
+    format: json
+    flush_interval: 1s
+  file/metrics:
+    path: /aegis-capture/metrics.jsonl
+    format: json
+    flush_interval: 1s
+  file/logs:
+    path: /aegis-capture/logs.jsonl
+    format: json
+    flush_interval: 1s
+
+service:
+  pipelines:
+    traces:
+      exporters: [debug, span_metrics, file/traces]
+    metrics:
+      exporters: [debug, file/metrics]
+    logs:
+      exporters: [debug, file/logs]

@@ -2,6 +2,7 @@
 .env
 .env.*
 !.env.example
+.runtime/
 
 # Python
 __pycache__/
@@ -50,7 +51,10 @@ logs/
 *.db
 *.sqlite
 *.sqlite3
-/data/
+/data/raw/**
+!/data/raw/.gitkeep
+/data/samples/**
+!/data/samples/.gitkeep
 
 # Test and tooling artifacts
 .tox/

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "otel_demo_version": "3.1.0",
+  "git_ref": "3.1.0",
+  "expected_commit": "dedc0178918e260823323b8d95005a8cb924b007",
+  "repository_url": "https://github.com/open-telemetry/opentelemetry-demo.git",
+  "compose_project": "aegis-telemetry-lab",
+  "defaults": {
+    "warmup_seconds": 30,
+    "capture_seconds": 60,
+    "fault_propagation_seconds": 10,
+    "collector_flush_seconds": 5
+  },
+  "ports": {
+    "frontend_proxy": 18080,
+    "envoy_admin": 19000
+  }
+}

@@ -1,6 +1,26 @@
 # Planned Architecture
 
-Phase 0 implements only the four service foundations, their health endpoints, tests, container images, and local Compose wiring. Every data, messaging, intelligence, observability, frontend, and cloud capability below is a future design goal.
+Phase 1 preserves the four service foundations and adds an offline telemetry dataset laboratory. The long-term data, messaging, intelligence, production observability, frontend, and cloud capabilities below remain future design goals.
+
+## Phase 1 Offline Dataset Path
+
+```text
+OpenTelemetry Demo 3.1.0
+        |
+        | OTLP logs / metrics / traces
+        v
+OpenTelemetry Collector
+        |
+        +--> metrics.jsonl
+        +--> logs.jsonl
+        +--> traces.jsonl
+        +--> manifest.json (ground truth)
+                    |
+                    v
+             Raw Labeled Dataset
+```
+
+This isolated path uses the demo's built-in traffic generator and deterministic feature flags. It exists only to generate validated local experiment files. The file exporter is not the intended production architecture, and the Phase 0 telemetry-service is not in this capture path. Phase 2 will introduce the separate AegisAI Kafka event pipeline.
 
 ## Logical Architecture
 
@@ -36,7 +56,7 @@ Phase 0 implements only the four service foundations, their health endpoints, te
                    Grafana
 ```
 
-The diagram describes the intended logical relationships, not deployed Phase 0 infrastructure.
+The diagram describes intended long-term logical relationships, not deployed Phase 1 infrastructure.
 
 ## Planned Service Responsibilities
 
@@ -46,7 +66,7 @@ The future system of record for incident lifecycle, metadata, severity, ownershi
 
 ### Telemetry Service
 
-The future entry point for logs, metrics, traces, preprocessing, feature generation, and Kafka ingestion. In Phase 0 it exposes only a health endpoint.
+The future entry point for logs, metrics, traces, preprocessing, feature generation, and Kafka ingestion. It still exposes only its Phase 0 health endpoint; the Phase 1 external demo writes directly through its own Collector to offline files.
 
 ### ML Service
 
@@ -64,7 +84,7 @@ Kafka is planned to carry `telemetry.raw`, `telemetry.processed`, `anomaly.detec
 
 ### Storage
 
-PostgreSQL will provide relational persistence, pgvector will support vector search, and Redis will support carefully selected cache or ephemeral coordination use cases. Phase 0 does not start or connect to these systems in its default configuration.
+PostgreSQL will provide relational persistence, pgvector will support vector search, and Redis will support carefully selected cache or ephemeral coordination use cases. AegisAI does not start or connect to these systems in its default Compose configuration. The telemetry demo's PostgreSQL and Valkey containers are isolated workload internals, not this future architecture.
 
 ### Machine learning
 
@@ -76,7 +96,7 @@ Later phases will evaluate BM25, dense retrieval, reciprocal rank fusion, rerank
 
 ### Observability
 
-OpenTelemetry will provide instrumentation and distributed tracing, Prometheus will collect metrics, Grafana will visualize operational signals, and services will emit structured logs. Phase 0 does not include an observability pipeline.
+OpenTelemetry will provide instrumentation and distributed tracing, Prometheus will collect metrics, Grafana will visualize operational signals, and services will emit structured logs. Phase 1 uses an external instrumented demo and file exporter only; it does not deploy an AegisAI production observability pipeline.
 
 ### Cloud delivery
 

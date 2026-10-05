@@ -1,0 +1,26 @@
+networks:
+  default:
+    name: aegis-telemetry-lab
+
+services:
+  otel-collector:
+    volumes:
+      - type: bind
+        source: ${AEGIS_CAPTURE_DIR}
+        target: /aegis-capture
+
+  flagd:
+    volumes:
+      - type: bind
+        source: ${AEGIS_FLAGD_DIR}
+        target: /etc/flagd
+
+  flagd-ui:
+    volumes:
+      - type: bind
+        source: ${AEGIS_FLAGD_DIR}
+        target: /app/data
+
+  load-generator:
+    environment:
+      LOCUST_BROWSER_TRAFFIC_ENABLED: "false"

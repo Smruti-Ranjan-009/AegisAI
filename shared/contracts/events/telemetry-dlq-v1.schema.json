@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisai.local/contracts/telemetry-dlq-v1.schema.json",
+  "title": "AegisAI telemetry.dlq v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "event_type", "failed_at_utc", "source", "headers", "error", "processing_attempt_count", "raw_payload", "ground_truth"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "event_type": {"const": "telemetry.dlq"},
+    "failed_at_utc": {"type": "string", "format": "date-time"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topic", "partition", "offset"],
+      "properties": {
+        "topic": {"type": "string", "minLength": 1},
+        "partition": {"type": "integer", "minimum": 0},
+        "offset": {"type": "integer", "minimum": 0}
+      }
+    },
+    "headers": {"type": "object", "additionalProperties": {"type": ["string", "null"]}},
+    "error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "message"],
+      "properties": {
+        "category": {"enum": ["missing_header", "unsupported_signal", "invalid_utf8", "invalid_json", "invalid_otlp_structure", "processed_schema_validation", "processing_error"]},
+        "message": {"type": "string", "minLength": 1}
+      }
+    },
+    "processing_attempt_count": {"type": "integer", "minimum": 1},
+    "raw_payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["encoding", "data"],
+      "properties": {
+        "encoding": {"const": "base64"},
+        "data": {"type": "string"}
+      }
+    },
+    "ground_truth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "scenario", "label"],
+      "properties": {
+        "run_id": {"type": ["string", "null"]},
+        "scenario": {"type": ["string", "null"]},
+        "label": {"type": ["string", "null"]}
+      }
+    }
+  }
+}

@@ -1,0 +1,114 @@
+# OpenTelemetry Collector Contrib 0.159.0 streaming overlay.
+# Three exporters are intentional: each writes OTLP JSON to the shared raw
+# topic with a static signal header. The queue is bounded and memory-only.
+
+# The streaming Collector joins both the demo and Kafka networks. Bind OTLP
+# on every interface so SDKs on the demo network and host forwarding continue
+# to work regardless of which container address its hostname resolves to.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+exporters:
+  kafka/metrics:
+    brokers: [kafka:19092]
+    client_id: aegis-otel-metrics
+    metrics:
+      topic: telemetry.raw
+      encoding: otlp_json
+    record_headers:
+      - name: aegis.event_type
+        value: telemetry.raw
+      - name: aegis.schema_version
+        value: "1"
+      - name: aegis.signal
+        value: metrics
+      - name: content-type
+        value: application/json
+    timeout: 10s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 10s
+      max_elapsed_time: 60s
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 500
+    producer:
+      required_acks: -1
+      compression: zstd
+      allow_auto_topic_creation: false
+
+  kafka/logs:
+    brokers: [kafka:19092]
+    client_id: aegis-otel-logs
+    logs:
+      topic: telemetry.raw
+      encoding: otlp_json
+    record_headers:
+      - name: aegis.event_type
+        value: telemetry.raw
+      - name: aegis.schema_version
+        value: "1"
+      - name: aegis.signal
+        value: logs
+      - name: content-type
+        value: application/json
+    timeout: 10s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 10s
+      max_elapsed_time: 60s
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 500
+    producer:
+      required_acks: -1
+      compression: zstd
+      allow_auto_topic_creation: false
+
+  kafka/traces:
+    brokers: [kafka:19092]
+    client_id: aegis-otel-traces
+    traces:
+      topic: telemetry.raw
+      encoding: otlp_json
+    record_headers:
+      - name: aegis.event_type
+        value: telemetry.raw
+      - name: aegis.schema_version
+        value: "1"
+      - name: aegis.signal
+        value: traces
+      - name: content-type
+        value: application/json
+    timeout: 10s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 1s
+      max_interval: 10s
+      max_elapsed_time: 60s
+    sending_queue:
+      enabled: true
+      num_consumers: 4
+      queue_size: 500
+    producer:
+      required_acks: -1
+      compression: zstd
+      allow_auto_topic_creation: false
+
+service:
+  pipelines:
+    traces:
+      exporters: [debug, span_metrics, kafka/traces]
+    metrics:
+      exporters: [debug, kafka/metrics]
+    logs:
+      exporters: [debug, kafka/logs]

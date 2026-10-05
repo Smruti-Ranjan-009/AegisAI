@@ -12,11 +12,74 @@ services:
 
   telemetry-service:
     build:
-      context: ./services/telemetry-service
+      context: .
+      dockerfile: services/telemetry-service/Dockerfile
     environment:
       PORT: 8001
     ports:
       - "${TELEMETRY_SERVICE_PORT:-8001}:8001"
+
+  telemetry-worker:
+    build:
+      context: .
+      dockerfile: services/telemetry-service/Dockerfile
+    command: ["python", "-m", "app.messaging.worker"]
+    environment: &kafka-client-environment
+      KAFKA_BOOTSTRAP_SERVERS: kafka:19092
+      KAFKA_RAW_TOPIC: telemetry.raw
+      KAFKA_PROCESSED_TOPIC: telemetry.processed
+      KAFKA_DLQ_TOPIC: telemetry.dlq
+      KAFKA_CONSUMER_GROUP: aegis-telemetry-processor-v1
+      KAFKA_PROCESSING_MAX_ATTEMPTS: ${KAFKA_PROCESSING_MAX_ATTEMPTS:-3}
+      KAFKA_RETRY_INITIAL_SECONDS: ${KAFKA_RETRY_INITIAL_SECONDS:-0.5}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  kafka:
+    image: apache/kafka:4.3.1
+    hostname: kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: CONTROLLER://:19093,INTERNAL://:19092,HOST://:9092
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:19092,HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:19093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_NUM_PARTITIONS: 1
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    ports:
+      - "9092:9092"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:19092 --list >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 15s
+
+  kafka-init:
+    build:
+      context: .
+      dockerfile: services/telemetry-service/Dockerfile
+    command: ["python", "-m", "app.messaging.admin"]
+    environment: *kafka-client-environment
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: "no"
 
   ml-service:
     build:
@@ -33,3 +96,11 @@ services:
       PORT: 8003
     ports:
       - "${RAG_SERVICE_PORT:-8003}:8003"
+
+networks:
+  default:
+    name: aegis-backbone
+
+volumes:
+  kafka-data:
+    name: aegis-kafka-data

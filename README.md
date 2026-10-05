@@ -2,15 +2,15 @@
 
 AI-powered incident intelligence platform combining ML-based anomaly detection, hybrid RAG, and event-driven microservices to diagnose distributed-system failures and generate grounded remediation recommendations.
 
-> **Current status: Phase 1 — Telemetry Generation and Dataset Capture**
+> **Current status: Phase 2 — Kafka Event Backbone and Telemetry Streaming Pipeline**
 
 ## Overview
 
-AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 1 preserves the Phase 0 service foundation and adds an isolated, reproducible laboratory for generating labeled raw metrics, logs, and traces.
+AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 2 preserves the service foundation and offline dataset laboratory, then adds a local Kafka backbone, replay/live telemetry producers, a validation worker, versioned contracts, and a dead-letter path.
 
 ## Problem Statement
 
-Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 1 creates raw, labeled experiment data only; it does not perform feature engineering, detection, incident management, or AI analysis.
+Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 2 transports and validates telemetry only; it does not perform feature engineering, detection, incident management, or AI analysis.
 
 ## Long-Term Architecture
 
@@ -21,12 +21,13 @@ The planned system consists of a React dashboard, a Spring Boot incident API, th
 | Area | Implemented | Planned later |
 | --- | --- | --- |
 | Incident API | Phase 0: Java 17, Spring Boot, Maven | PostgreSQL persistence, Kafka, RBAC |
-| Python services | Phase 0: Python 3.12, FastAPI, Pydantic, Uvicorn | Telemetry, ML, and RAG-specific libraries |
-| Dataset laboratory | OpenTelemetry Demo 3.1.0, Collector file exporter, stdlib Python CLI | Streaming ingestion and feature engineering |
-| Testing and quality | JUnit/Spring Boot Test, pytest, Ruff | Integration and end-to-end suites |
+| Python services | Python 3.12, FastAPI, Pydantic, Uvicorn; telemetry worker uses `confluent-kafka` and JSON Schema | ML and RAG-specific libraries |
+| Dataset laboratory | OpenTelemetry Demo 3.1.0, Collector file exporter, stdlib Python CLI | Feature engineering |
+| Event backbone | Apache Kafka 4.3.1 in single-node KRaft mode; raw, processed, and DLQ topics | Multi-node or managed production Kafka |
+| Testing and quality | JUnit/Spring Boot Test, pytest, Ruff, Kafka integration tests | Broader end-to-end suites |
 | Containers | Docker, Docker Compose | Production orchestration and cloud delivery |
-| Data and messaging | H2 for local Java startup only | PostgreSQL, pgvector, Redis, Kafka |
-| Observability | Not implemented | OpenTelemetry, Prometheus, Grafana |
+| Data and messaging | H2 for local Java startup; Kafka with a persistent local volume | PostgreSQL, pgvector, Redis |
+| Observability | OpenTelemetry Demo is a telemetry source only | AegisAI OpenTelemetry, Prometheus, Grafana pipelines |
 | Frontend | Directory placeholder only | React dashboard |
 
 ## Repository Structure
@@ -34,21 +35,23 @@ The planned system consists of a React dashboard, a Spring Boot incident API, th
 ```text
 services/       Independently buildable backend services
 frontend/       Future React application
-shared/         Future cross-service contracts and schemas
+shared/         Versioned event contracts and future shared schemas
 ml/             Future offline ML workspaces
 rag/            Future RAG pipelines and evaluation
 infrastructure/ Docker foundations and the isolated telemetry lab
 data/           Raw capture location and future curated samples
-tests/          Cross-service placeholders and telemetry-lab unit tests
+tests/          Cross-service and Kafka integration tests
 docs/           Architecture and project documentation
-scripts/        Telemetry-lab orchestration CLI
+scripts/        Telemetry-lab and Kafka pipeline CLIs
 ```
 
 Each Python service owns its dependencies; there is intentionally no root `requirements.txt`.
 
 ## Current Implementation Status
 
-Phase 1 includes the four Phase 0 services plus a local offline dataset-generation path based on the official OpenTelemetry Demo 3.1.0. It produces separate OTLP JSONL signal files and a ground-truth manifest for normal or controlled-fault runs. It does **not** include feature engineering, ML models, anomaly detection, classification, RAG, LLM investigation, Kafka, AegisAI Redis/PostgreSQL persistence, AWS deployment, Prometheus, Grafana, or production incident workflows.
+Phase 2 includes the four service foundations, the Phase 1 offline dataset laboratory, and a local Kafka telemetry pipeline. Phase 1 JSONL captures can be replayed to `telemetry.raw`; alternatively, a separate Collector overlay streams live OTLP JSON. The telemetry worker validates records, preserves capture ground truth, produces versioned envelopes to `telemetry.processed`, and routes permanent failures to `telemetry.dlq` with manual source-offset commits.
+
+Phase 2 does **not** include feature engineering, ML models, anomaly detection, classification, RAG, LLM investigation, AegisAI Redis/PostgreSQL persistence, AWS deployment, Prometheus, Grafana, authentication, or incident workflows.
 
 ## Prerequisites
 
@@ -67,7 +70,7 @@ Clone the repository and optionally copy the safe example environment file:
 Copy-Item .env.example .env
 ```
 
-The defaults are sufficient for Phase 0. `.env` is ignored and must never contain committed secrets.
+The defaults are sufficient for local Phase 2 development. `.env` is ignored and must never contain committed secrets.
 
 ## Telemetry Dataset Lab
 
@@ -84,6 +87,39 @@ python scripts\telemetry_lab.py stop
 ```
 
 Captures are written to ignored directories under `data/raw/<run-id>/`. See [docs/telemetry-dataset.md](docs/telemetry-dataset.md) for the data contract, validation behavior, resource notes, and cleanup commands. The CLI uses only Python's standard library; the Java service does not run inside Conda.
+
+## Kafka Telemetry Pipeline
+
+Install the telemetry-service dependencies, then start Kafka, deterministic
+topic provisioning, and the worker:
+
+```powershell
+conda activate aegis
+python -m pip install -r services\telemetry-service\requirements.txt
+python scripts\kafka_pipeline.py start
+python scripts\kafka_pipeline.py topics
+```
+
+Replay a validated Phase 1 run or start the separate live streaming overlay:
+
+```powershell
+python scripts\kafka_pipeline.py replay --run <run-id>
+python scripts\kafka_pipeline.py consume --topic telemetry.processed --limit 5
+
+python scripts\kafka_pipeline.py stream-start
+python scripts\kafka_pipeline.py stream-status
+python scripts\kafka_pipeline.py stream-stop
+```
+
+Stop Kafka while preserving its named data volume:
+
+```powershell
+python scripts\kafka_pipeline.py stop
+```
+
+See [docs/kafka-pipeline.md](docs/kafka-pipeline.md) for topic settings,
+delivery semantics, contracts, DLQ behavior, cleanup, and troubleshooting. The
+helper checks Docker availability but never starts Docker Desktop itself.
 
 ## Python Environment Setup
 
@@ -146,7 +182,14 @@ cd ..\rag-service
 python -m pip install -r requirements.txt
 python -m pytest
 python -m ruff check .
+
+cd ..\..
+$env:KAFKA_INTEGRATION = "1"
+python -m pytest tests\integration -m kafka_integration
 ```
+
+The Kafka integration suite expects the Phase 2 Compose services to be running;
+CI configures this automatically.
 
 ## Running with Docker Compose
 
@@ -159,7 +202,9 @@ docker compose ps
 docker compose down
 ```
 
-Compose starts only the four Phase 0 backend services. It does not start infrastructure dependencies.
+Compose starts the four backend APIs plus Kafka, one-shot topic provisioning,
+and the separate telemetry worker. It does not start PostgreSQL, Redis,
+Prometheus, Grafana, the OpenTelemetry Demo, or a frontend container.
 
 ## Health Endpoints
 
@@ -183,9 +228,9 @@ Invoke-RestMethod http://localhost:8003/health
 ## Planned Development Phases
 
 1. Phase 0: repository and service foundation (complete)
-2. Phase 1: telemetry generation and raw dataset capture (current)
-3. Phase 2: Kafka event backbone and event contracts
-4. Later phases: incident persistence, feature engineering, ML, RAG, frontend, production observability, CI/CD, and AWS delivery
+2. Phase 1: telemetry generation and raw dataset capture (complete)
+3. Phase 2: Kafka event backbone and telemetry streaming pipeline (current)
+4. Phase 3 and later: incident persistence, feature engineering, ML, RAG, frontend, production observability, CI/CD, and AWS delivery
 
 Each later capability will be introduced as a separate scoped phase.
 
@@ -198,4 +243,6 @@ Each later capability will be introduced as a separate scoped phase.
 
 ## Future Deployment Strategy
 
-The planned portfolio deployment path is GitHub Actions to AWS IAM OIDC, Amazon ECR, an EC2 host, and Docker Compose. Phase 1 contains no AWS resources, deployment workflows, credentials, or production infrastructure.
+The planned portfolio deployment path is GitHub Actions to AWS IAM OIDC,
+Amazon ECR, an EC2 host, and Docker Compose. Phase 2 contains no AWS resources,
+deployment workflows, credentials, or production infrastructure.

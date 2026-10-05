@@ -7,3 +7,8 @@ select = ["E", "F", "I", "UP", "B"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
+
+[tool.pytest.ini_options]
+markers = [
+  "kafka_integration: requires the real Docker Kafka broker and telemetry worker",
+]

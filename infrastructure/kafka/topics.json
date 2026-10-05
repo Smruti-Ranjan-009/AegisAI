@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "topics": [
+    {
+      "name": "telemetry.raw",
+      "partitions": 3,
+      "replication_factor": 1,
+      "config": {
+        "cleanup.policy": "delete",
+        "retention.ms": "86400000"
+      }
+    },
+    {
+      "name": "telemetry.processed",
+      "partitions": 3,
+      "replication_factor": 1,
+      "config": {
+        "cleanup.policy": "delete",
+        "retention.ms": "86400000"
+      }
+    },
+    {
+      "name": "telemetry.dlq",
+      "partitions": 1,
+      "replication_factor": 1,
+      "config": {
+        "cleanup.policy": "delete",
+        "retention.ms": "604800000"
+      }
+    }
+  ]
+}

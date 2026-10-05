@@ -1,0 +1,28 @@
+networks:
+  default:
+    name: aegis-telemetry-lab
+  backbone:
+    external: true
+    name: aegis-backbone
+
+services:
+  otel-collector:
+    networks:
+      - default
+      - backbone
+
+  flagd:
+    volumes:
+      - type: bind
+        source: ${AEGIS_FLAGD_DIR}
+        target: /etc/flagd
+
+  flagd-ui:
+    volumes:
+      - type: bind
+        source: ${AEGIS_FLAGD_DIR}
+        target: /app/data
+
+  load-generator:
+    environment:
+      LOCUST_BROWSER_TRAFFIC_ENABLED: "false"

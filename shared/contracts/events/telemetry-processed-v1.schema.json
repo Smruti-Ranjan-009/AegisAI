@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aegisai.local/contracts/telemetry-processed-v1.schema.json",
+  "title": "AegisAI telemetry.processed v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "event_id", "event_type", "produced_at_utc", "signal", "source", "service_names", "ground_truth", "payload"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "event_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "event_type": {"const": "telemetry.processed"},
+    "produced_at_utc": {"type": "string", "format": "date-time"},
+    "signal": {"enum": ["metrics", "logs", "traces"]},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["topic", "partition", "offset"],
+      "properties": {
+        "topic": {"const": "telemetry.raw"},
+        "partition": {"type": "integer", "minimum": 0},
+        "offset": {"type": "integer", "minimum": 0}
+      }
+    },
+    "service_names": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "ground_truth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "scenario", "label"],
+      "properties": {
+        "run_id": {"type": ["string", "null"]},
+        "scenario": {"type": ["string", "null"]},
+        "label": {"type": ["string", "null"]}
+      }
+    },
+    "payload": {"type": "object"}
+  }
+}

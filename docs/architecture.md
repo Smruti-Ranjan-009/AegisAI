@@ -1,6 +1,6 @@
 # Planned Architecture
 
-Phase 1 preserves the four service foundations and adds an offline telemetry dataset laboratory. The long-term data, messaging, intelligence, production observability, frontend, and cloud capabilities below remain future design goals.
+Phase 2 preserves the four service foundations and offline telemetry dataset laboratory, then adds the local Kafka telemetry path described below. Intelligence, production storage and observability, frontend, and cloud capabilities remain future design goals.
 
 ## Phase 1 Offline Dataset Path
 
@@ -20,7 +20,32 @@ OpenTelemetry Collector
              Raw Labeled Dataset
 ```
 
-This isolated path uses the demo's built-in traffic generator and deterministic feature flags. It exists only to generate validated local experiment files. The file exporter is not the intended production architecture, and the Phase 0 telemetry-service is not in this capture path. Phase 2 will introduce the separate AegisAI Kafka event pipeline.
+This isolated path uses the demo's built-in traffic generator and deterministic feature flags. It exists only to generate validated local experiment files. The file exporter is not the intended production architecture, and the telemetry service is not in this capture path. Phase 2 keeps this mode intact and adds the separate AegisAI Kafka event pipeline.
+
+## Phase 2 Streaming Path
+
+```text
+OpenTelemetry Demo
+        |
+        v
+OpenTelemetry Collector
+        |
+        v
+   telemetry.raw
+        |
+        v
+Telemetry Worker
+        |
+        +----------------+
+        |                |
+        v                v
+telemetry.processed  telemetry.dlq
+```
+
+The Phase 1 Collector-to-JSONL path remains available as an offline dataset
+mode. Phase 2 adds a separate Collector-to-Kafka overlay and a replay producer
+for those JSONL captures. The worker validates and wraps raw OTLP JSON but does
+not perform feature engineering, inference, or incident creation.
 
 ## Logical Architecture
 
@@ -56,7 +81,7 @@ This isolated path uses the demo's built-in traffic generator and deterministic 
                    Grafana
 ```
 
-The diagram describes intended long-term logical relationships, not deployed Phase 1 infrastructure.
+The diagram describes intended long-term logical relationships, not fully deployed Phase 2 infrastructure.
 
 ## Planned Service Responsibilities
 
@@ -66,7 +91,7 @@ The future system of record for incident lifecycle, metadata, severity, ownershi
 
 ### Telemetry Service
 
-The future entry point for logs, metrics, traces, preprocessing, feature generation, and Kafka ingestion. It still exposes only its Phase 0 health endpoint; the Phase 1 external demo writes directly through its own Collector to offline files.
+The entry point for future logs, metrics, traces, preprocessing, and feature generation. In Phase 2 its API remains health-only, while a separate worker consumes raw OTLP JSON from Kafka, validates it, emits processed envelopes, and routes invalid input to a DLQ. It does not create features or incidents.
 
 ### ML Service
 
@@ -80,7 +105,7 @@ The future knowledge service for runbooks, postmortems, incident history, archit
 
 ### Event-driven system
 
-Kafka is planned to carry `telemetry.raw`, `telemetry.processed`, `anomaly.detected`, `incident.created`, `incident.updated`, `model.predictions`, and `rag.indexing` events. Contracts will be versioned under `shared/`. Consumer groups, partitioning, retries, dead-letter queues, idempotency, and backpressure must be designed before workflows are implemented.
+Phase 2 implements `telemetry.raw`, `telemetry.processed`, and `telemetry.dlq` with versioned contracts, explicit partitions and retention, manual commits, bounded retries, deterministic event IDs, and documented at-least-once semantics. `anomaly.detected`, `incident.created`, `incident.updated`, `model.predictions`, and `rag.indexing` remain future topics. Production partitioning, scaling, security, and backpressure policies remain future work.
 
 ### Storage
 
@@ -96,7 +121,7 @@ Later phases will evaluate BM25, dense retrieval, reciprocal rank fusion, rerank
 
 ### Observability
 
-OpenTelemetry will provide instrumentation and distributed tracing, Prometheus will collect metrics, Grafana will visualize operational signals, and services will emit structured logs. Phase 1 uses an external instrumented demo and file exporter only; it does not deploy an AegisAI production observability pipeline.
+OpenTelemetry will provide instrumentation and distributed tracing, Prometheus will collect metrics, Grafana will visualize operational signals, and services will emit structured logs. Phase 2 uses the external instrumented demo as a telemetry source for offline capture or Kafka streaming; it does not deploy an AegisAI production observability pipeline.
 
 ### Cloud delivery
 
@@ -118,4 +143,4 @@ EC2
 Docker Compose
 ```
 
-AWS resources, deployment automation, and credentials are outside Phase 0.
+AWS resources, deployment automation, and credentials are outside Phase 2.

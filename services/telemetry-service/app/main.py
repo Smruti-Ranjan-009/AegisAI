@@ -9,8 +9,8 @@ class HealthResponse(BaseModel):
 
 app = FastAPI(
     title="AegisAI Telemetry Service",
-    description="Phase 0 service foundation.",
-    version="0.1.0",
+    description="Phase 2 health API; Kafka processing runs in a separate worker process.",
+    version="0.2.0",
 )
 
 

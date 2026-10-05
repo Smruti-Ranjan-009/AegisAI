@@ -19,6 +19,11 @@ of the flag configuration, and a dedicated network. The Collector extras file
 preserves upstream's debug and span-metrics exporters and adds separate JSONL
 file exporters for metrics, logs, and traces.
 
+Phase 2 adds `compose.kafka.yml` and `collector/aegis-kafka-config.yml` as a
+separate mode. It connects only the Collector to the external
+`aegis-backbone` network and publishes OTLP JSON to `telemetry.raw`. It does
+not alter or replace capture mode.
+
 Use `python scripts\telemetry_lab.py --help` from the repository root. Full
 operating instructions and the dataset contract are in
 `docs/telemetry-dataset.md`.

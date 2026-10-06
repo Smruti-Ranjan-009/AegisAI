@@ -1,6 +1,32 @@
 # Planned Architecture
 
-Phase 2 preserves the four service foundations and offline telemetry dataset laboratory, then adds the local Kafka telemetry path described below. Intelligence, production storage and observability, frontend, and cloud capabilities remain future design goals.
+Phase 3 preserves the service foundations, offline telemetry dataset laboratory, and Kafka telemetry path, then adds manual incident management backed by PostgreSQL. Automated telemetry-to-incident integration, intelligence, production observability, frontend, and cloud capabilities remain future design goals.
+
+## Phase 3 Incident Management Path
+
+```text
+Operator / API client
+        |
+        | JSON over HTTP
+        v
+Spring Boot Incident API
+        |
+        +--> request validation and Problem Details
+        +--> incident lifecycle invariants
+        +--> transactional incident + timeline writes
+        |
+        v
+PostgreSQL 18.4
+  +-- incidents
+  +-- incident_affected_services
+  +-- incident_timeline
+  +-- flyway_schema_history
+```
+
+Flyway is the sole schema owner and Hibernate runs with `ddl-auto=validate`.
+Incident and associated timeline writes share transaction boundaries. The API
+uses optimistic locking for concurrent aggregate mutations. Kafka is not connected
+to this path in Phase 3.
 
 ## Phase 1 Offline Dataset Path
 
@@ -81,13 +107,17 @@ not perform feature engineering, inference, or incident creation.
                    Grafana
 ```
 
-The diagram describes intended long-term logical relationships, not fully deployed Phase 2 infrastructure.
+The diagram describes intended long-term logical relationships, not fully deployed Phase 3 infrastructure.
 
-## Planned Service Responsibilities
+## Service Responsibilities
 
 ### Incident Service
 
-The future system of record for incident lifecycle, metadata, severity, ownership, APIs, RBAC, and persistence. In Phase 0 it exposes only application and Actuator health endpoints and uses an in-memory H2 datasource so local startup has no external dependency.
+The Phase 3 system of record for manually managed incident lifecycle, metadata,
+severity, ownership, affected services, root cause, remediation, and chronological
+timeline entries. It exposes REST endpoints and persists to PostgreSQL through
+Spring Data JPA. Authentication, RBAC, Kafka-driven incident creation, and hard
+deletion are not implemented.
 
 ### Telemetry Service
 
@@ -109,7 +139,31 @@ Phase 2 implements `telemetry.raw`, `telemetry.processed`, and `telemetry.dlq` w
 
 ### Storage
 
-PostgreSQL will provide relational persistence, pgvector will support vector search, and Redis will support carefully selected cache or ephemeral coordination use cases. AegisAI does not start or connect to these systems in its default Compose configuration. The telemetry demo's PostgreSQL and Valkey containers are isolated workload internals, not this future architecture.
+PostgreSQL now provides relational incident persistence using normalized tables,
+constraints, indexes, Flyway migrations, and a named Compose volume. pgvector and
+Redis remain future capabilities. The telemetry demo's separate PostgreSQL and
+Valkey containers are isolated workload internals and are not AegisAI persistence.
+
+### Incident lifecycle
+
+The enforced transition graph is:
+
+```text
+OPEN ----------> INVESTIGATING -------> MITIGATED
+ |                     ^                    |
+ |                     +--------------------+
+ |                     ^                    |
+ +------> RESOLVED ----+                    |
+             |                              |
+             +----------> CLOSED            |
+             ^                              |
+             +------------------------------+
+```
+
+More precisely: `OPEN -> INVESTIGATING|RESOLVED`,
+`INVESTIGATING -> MITIGATED|RESOLVED`,
+`MITIGATED -> INVESTIGATING|RESOLVED`, and
+`RESOLVED -> INVESTIGATING|CLOSED`. `CLOSED` is terminal.
 
 ### Machine learning
 
@@ -143,4 +197,4 @@ EC2
 Docker Compose
 ```
 
-AWS resources, deployment automation, and credentials are outside Phase 2.
+AWS resources, deployment automation, and credentials are outside Phase 3.

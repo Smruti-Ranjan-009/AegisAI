@@ -1,0 +1,6 @@
+ALTER TABLE incident_timeline RENAME TO incident_timeline_entries;
+ALTER INDEX idx_timeline_incident_created RENAME TO idx_timeline_entries_incident_created;
+ALTER TABLE incident_timeline_entries
+    RENAME CONSTRAINT ck_incident_timeline_event_type TO ck_incident_timeline_entries_event_type;
+ALTER TABLE incident_timeline_entries
+    RENAME CONSTRAINT fk_timeline_incident TO fk_timeline_entries_incident;

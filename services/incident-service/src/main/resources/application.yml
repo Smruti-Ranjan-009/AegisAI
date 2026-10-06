@@ -2,16 +2,19 @@ spring:
   application:
     name: incident-service
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:h2:mem:aegisai;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE}
-    driver-class-name: ${SPRING_DATASOURCE_DRIVER_CLASS_NAME:org.h2.Driver}
-    username: ${SPRING_DATASOURCE_USERNAME:sa}
-    password: ${SPRING_DATASOURCE_PASSWORD:}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:aegisai}}
+    username: ${SPRING_DATASOURCE_USERNAME:${POSTGRES_USER:aegis}}
+    password: ${SPRING_DATASOURCE_PASSWORD:${POSTGRES_PASSWORD:aegis_dev_password}}
   flyway:
-    enabled: ${SPRING_FLYWAY_ENABLED:false}
+    enabled: true
   jpa:
     hibernate:
-      ddl-auto: none
+      ddl-auto: validate
     open-in-view: false
+  jackson:
+    deserialization:
+      fail-on-unknown-properties: true
+    property-naming-strategy: SNAKE_CASE
 
 server:
   port: ${SERVER_PORT:8080}

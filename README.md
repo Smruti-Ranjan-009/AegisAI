@@ -2,15 +2,15 @@
 
 AI-powered incident intelligence platform combining ML-based anomaly detection, hybrid RAG, and event-driven microservices to diagnose distributed-system failures and generate grounded remediation recommendations.
 
-> **Current status: Phase 2 — Kafka Event Backbone and Telemetry Streaming Pipeline**
+> **Current status: Phase 3 — Incident Management and PostgreSQL Persistence**
 
 ## Overview
 
-AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 2 preserves the service foundation and offline dataset laboratory, then adds a local Kafka backbone, replay/live telemetry producers, a validation worker, versioned contracts, and a dead-letter path.
+AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 3 preserves the Phase 2 telemetry pipeline and adds a PostgreSQL-backed incident-management API with explicit lifecycle rules, timeline history, Flyway migrations, transaction boundaries, and optimistic locking.
 
 ## Problem Statement
 
-Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 2 transports and validates telemetry only; it does not perform feature engineering, detection, incident management, or AI analysis.
+Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 3 supports manual incident management only; telemetry does not create incidents automatically and no ML or AI analysis is implemented.
 
 ## Long-Term Architecture
 
@@ -20,13 +20,13 @@ The planned system consists of a React dashboard, a Spring Boot incident API, th
 
 | Area | Implemented | Planned later |
 | --- | --- | --- |
-| Incident API | Phase 0: Java 17, Spring Boot, Maven | PostgreSQL persistence, Kafka, RBAC |
+| Incident API | Java 17, Spring Boot 3.4, REST, Validation, Spring Data JPA, Flyway | Kafka integration, authentication, RBAC |
 | Python services | Python 3.12, FastAPI, Pydantic, Uvicorn; telemetry worker uses `confluent-kafka` and JSON Schema | ML and RAG-specific libraries |
 | Dataset laboratory | OpenTelemetry Demo 3.1.0, Collector file exporter, stdlib Python CLI | Feature engineering |
 | Event backbone | Apache Kafka 4.3.1 in single-node KRaft mode; raw, processed, and DLQ topics | Multi-node or managed production Kafka |
-| Testing and quality | JUnit/Spring Boot Test, pytest, Ruff, Kafka integration tests | Broader end-to-end suites |
+| Testing and quality | JUnit, Spring Boot Test, Testcontainers PostgreSQL, pytest, Ruff, Kafka integration tests | Broader end-to-end suites |
 | Containers | Docker, Docker Compose | Production orchestration and cloud delivery |
-| Data and messaging | H2 for local Java startup; Kafka with a persistent local volume | PostgreSQL, pgvector, Redis |
+| Data and messaging | PostgreSQL 18.4 with persistent local volume; Kafka with a persistent local volume | pgvector, Redis |
 | Observability | OpenTelemetry Demo is a telemetry source only | AegisAI OpenTelemetry, Prometheus, Grafana pipelines |
 | Frontend | Directory placeholder only | React dashboard |
 
@@ -49,9 +49,11 @@ Each Python service owns its dependencies; there is intentionally no root `requi
 
 ## Current Implementation Status
 
-Phase 2 includes the four service foundations, the Phase 1 offline dataset laboratory, and a local Kafka telemetry pipeline. Phase 1 JSONL captures can be replayed to `telemetry.raw`; alternatively, a separate Collector overlay streams live OTLP JSON. The telemetry worker validates records, preserves capture ground truth, produces versioned envelopes to `telemetry.processed`, and routes permanent failures to `telemetry.dlq` with manual source-offset commits.
+Phase 3 includes the four service foundations, the Phase 1 offline dataset laboratory, the Phase 2 Kafka telemetry pipeline, and manual incident management backed by PostgreSQL. The incident API supports create, retrieve, filtered/paginated list, controlled updates, lifecycle transitions, and chronological timeline notes. Flyway owns the schema; Hibernate validates it; Testcontainers exercises the real PostgreSQL engine.
 
-Phase 2 does **not** include feature engineering, ML models, anomaly detection, classification, RAG, LLM investigation, AegisAI Redis/PostgreSQL persistence, AWS deployment, Prometheus, Grafana, authentication, or incident workflows.
+Phase 3 does **not** include automated Kafka-to-incident creation, feature engineering, ML models, anomaly detection, classification, RAG, LLM investigation, Redis, pgvector, AWS deployment, production observability, authentication, RBAC, or a frontend.
+
+The implementation journals are [decisions.md](decisions.md), [flow.md](flow.md), and [features.md](features.md). Future phases should read these before changing established behavior.
 
 ## Prerequisites
 
@@ -70,7 +72,15 @@ Clone the repository and optionally copy the safe example environment file:
 Copy-Item .env.example .env
 ```
 
-The defaults are sufficient for local Phase 2 development. `.env` is ignored and must never contain committed secrets.
+The defaults are development-only values sufficient for local Phase 3 use. `.env` is ignored and must never contain committed secrets.
+
+Start PostgreSQL before running the incident service directly:
+
+```powershell
+docker compose up -d --wait postgres
+```
+
+The database is available at `localhost:5432` by default. Override connection values through `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`.
 
 ## Telemetry Dataset Lab
 
@@ -145,6 +155,7 @@ Repeat for `ml-service` and `rag-service`. The Java service does not run inside 
 Incident service:
 
 ```powershell
+docker compose up -d --wait postgres
 cd services\incident-service
 .\mvnw.cmd spring-boot:run
 ```
@@ -188,8 +199,9 @@ $env:KAFKA_INTEGRATION = "1"
 python -m pytest tests\integration -m kafka_integration
 ```
 
-The Kafka integration suite expects the Phase 2 Compose services to be running;
-CI configures this automatically.
+The Java suite requires Docker because its context, API, migration, transaction,
+and optimistic-locking tests use Testcontainers PostgreSQL. The Kafka integration
+suite expects the Phase 2 Compose services to be running; CI configures both paths.
 
 ## Running with Docker Compose
 
@@ -202,9 +214,26 @@ docker compose ps
 docker compose down
 ```
 
-Compose starts the four backend APIs plus Kafka, one-shot topic provisioning,
-and the separate telemetry worker. It does not start PostgreSQL, Redis,
-Prometheus, Grafana, the OpenTelemetry Demo, or a frontend container.
+Compose starts PostgreSQL, the four backend APIs, Kafka, one-shot topic provisioning,
+and the separate telemetry worker. It does not start Redis, pgvector, Prometheus,
+Grafana, the OpenTelemetry Demo, or a frontend container.
+
+Normal shutdown preserves both named data volumes:
+
+```powershell
+docker compose down
+```
+
+To intentionally reset all local Kafka and PostgreSQL data:
+
+```powershell
+docker compose down -v
+```
+
+The PostgreSQL volume is named `aegis-postgres-data`. See
+[docs/incident-api.md](docs/incident-api.md) for API examples, lifecycle rules,
+error semantics, and persistence verification. The relational schema, indexes,
+migrations, and volume behavior are documented in [docs/database.md](docs/database.md).
 
 ## Health Endpoints
 
@@ -229,8 +258,9 @@ Invoke-RestMethod http://localhost:8003/health
 
 1. Phase 0: repository and service foundation (complete)
 2. Phase 1: telemetry generation and raw dataset capture (complete)
-3. Phase 2: Kafka event backbone and telemetry streaming pipeline (current)
-4. Phase 3 and later: incident persistence, feature engineering, ML, RAG, frontend, production observability, CI/CD, and AWS delivery
+3. Phase 2: Kafka event backbone and telemetry streaming pipeline (complete)
+4. Phase 3: incident management backend and PostgreSQL persistence (current)
+5. Phase 4 and later: feature engineering, ML, RAG, frontend, production observability, CI/CD, and AWS delivery
 
 Each later capability will be introduced as a separate scoped phase.
 
@@ -244,5 +274,5 @@ Each later capability will be introduced as a separate scoped phase.
 ## Future Deployment Strategy
 
 The planned portfolio deployment path is GitHub Actions to AWS IAM OIDC,
-Amazon ECR, an EC2 host, and Docker Compose. Phase 2 contains no AWS resources,
+Amazon ECR, an EC2 host, and Docker Compose. Phase 3 contains no AWS resources,
 deployment workflows, credentials, or production infrastructure.

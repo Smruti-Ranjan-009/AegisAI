@@ -24,6 +24,7 @@ dist/
 # Java / Maven
 target/
 *.class
+.m2/
 .mvn/timing.properties
 
 # IDEs and editors

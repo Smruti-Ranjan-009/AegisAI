@@ -18,7 +18,7 @@ jobs:
           distribution: temurin
           java-version: "17"
           cache: maven
-      - name: Test incident service
+      - name: Test incident service against Testcontainers PostgreSQL
         working-directory: services/incident-service
         run: bash mvnw --batch-mode --no-transfer-progress test
 

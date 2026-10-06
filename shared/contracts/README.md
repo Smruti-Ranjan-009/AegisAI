@@ -13,3 +13,11 @@ can understand both versions.
 Delivery is at least once: the consumer commits manually only after a processed
 or DLQ publication is acknowledged. Producers are idempotent and processed IDs
 are deterministic, but this is not an end-to-end exactly-once guarantee.
+
+Phase 4 adds immutable offline table contracts under `shared/contracts/ml/`:
+
+- `service-window-features-v1.md`
+- `metric-window-features-v1.md`
+
+Their ordered machine-readable column catalog lives with the independently
+installable feature package at `ml/feature_engineering/feature_catalog_v1.json`.

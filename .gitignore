@@ -57,6 +57,8 @@ logs/
 !/data/raw/.gitkeep
 /data/samples/**
 !/data/samples/.gitkeep
+/data/features/**
+!/data/features/README.md
 
 # Test and tooling artifacts
 .tox/

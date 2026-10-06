@@ -1,0 +1,60 @@
+{
+  "feature_schema_version": 1,
+  "service_windows": {
+    "metadata_columns": [
+      "feature_schema_version", "window_id", "run_id", "service_name",
+      "window_start_utc", "window_end_utc", "window_seconds", "source_event_count"
+    ],
+    "target_columns": ["scenario", "label", "is_anomaly"],
+    "feature_columns": [
+      "log_count", "log_trace_count", "log_debug_count", "log_info_count",
+      "log_warn_count", "log_error_count", "log_fatal_count",
+      "log_unspecified_count", "log_warn_rate", "log_error_rate", "log_fatal_rate",
+      "log_body_bytes_mean", "log_body_bytes_max", "span_count", "span_error_count",
+      "span_error_rate", "span_duration_ms_mean", "span_duration_ms_min",
+      "span_duration_ms_max", "span_duration_ms_p50", "span_duration_ms_p95",
+      "span_duration_ms_p99", "span_internal_count", "span_server_count",
+      "span_client_count", "span_producer_count", "span_consumer_count",
+      "span_unspecified_count", "span_unique_operation_count",
+      "span_exception_event_count", "metric_name_count", "metric_point_count",
+      "metric_gauge_count", "metric_sum_count", "metric_histogram_count",
+      "metric_exponential_histogram_count", "metric_summary_count",
+      "telemetry_observation_count"
+    ],
+    "types": {
+      "feature_schema_version": "int16", "window_id": "string", "run_id": "string",
+      "scenario": "string", "label": "string", "is_anomaly": "bool",
+      "service_name": "string", "window_start_utc": "timestamp[us, UTC]",
+      "window_end_utc": "timestamp[us, UTC]", "window_seconds": "int32",
+      "source_event_count": "int64", "counts": "int64", "rates": "float64",
+      "statistics": "float64"
+    },
+    "nullable_policy": "Only body-size and span-duration statistics are nullable when their signal/statistic has no valid observations; counts and rates are structural zero."
+  },
+  "metric_windows": {
+    "metadata_columns": [
+      "feature_schema_version", "metric_window_id", "run_id", "service_name",
+      "window_start_utc", "window_end_utc", "window_seconds", "metric_name",
+      "unit", "metric_type"
+    ],
+    "target_columns": ["scenario", "label", "is_anomaly"],
+    "feature_columns": [
+      "metric_point_count", "metric_series_count", "metric_value_mean",
+      "metric_value_std", "metric_value_min", "metric_value_max", "metric_value_p50",
+      "metric_value_p95", "metric_value_p99", "metric_value_first",
+      "metric_value_last", "histogram_datapoint_count",
+      "histogram_observation_count", "histogram_sum", "histogram_mean",
+      "histogram_min", "histogram_max", "summary_datapoint_count",
+      "summary_observation_count", "summary_sum", "summary_mean"
+    ],
+    "types": {
+      "feature_schema_version": "int16", "metric_window_id": "string",
+      "run_id": "string", "scenario": "string", "label": "string",
+      "is_anomaly": "bool", "service_name": "string",
+      "window_start_utc": "timestamp[us, UTC]", "window_end_utc": "timestamp[us, UTC]",
+      "window_seconds": "int32", "metric_name": "string", "unit": "string",
+      "metric_type": "string", "counts": "int64", "statistics": "float64"
+    },
+    "nullable_policy": "Statistics that are not semantically defined for a metric type or lack valid observations are null; point and series counts are non-null."
+  }
+}

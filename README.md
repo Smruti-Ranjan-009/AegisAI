@@ -2,15 +2,15 @@
 
 AI-powered incident intelligence platform combining ML-based anomaly detection, hybrid RAG, and event-driven microservices to diagnose distributed-system failures and generate grounded remediation recommendations.
 
-> **Current status: Phase 3 — Incident Management and PostgreSQL Persistence**
+> **Current status: Phase 4 — ML Feature Engineering**
 
 ## Overview
 
-AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 3 preserves the Phase 2 telemetry pipeline and adds a PostgreSQL-backed incident-management API with explicit lifecycle rules, timeline history, Flyway migrations, transaction boundaries, and optimistic locking.
+AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 4 preserves the operational services and adds deterministic offline transformation of labeled OTLP captures into validated service-window and metric-window Parquet datasets.
 
 ## Problem Statement
 
-Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 3 supports manual incident management only; telemetry does not create incidents automatically and no ML or AI analysis is implemented.
+Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 4 produces raw engineered features only; it does not train models or connect telemetry to incident creation.
 
 ## Long-Term Architecture
 
@@ -22,7 +22,7 @@ The planned system consists of a React dashboard, a Spring Boot incident API, th
 | --- | --- | --- |
 | Incident API | Java 17, Spring Boot 3.4, REST, Validation, Spring Data JPA, Flyway | Kafka integration, authentication, RBAC |
 | Python services | Python 3.12, FastAPI, Pydantic, Uvicorn; telemetry worker uses `confluent-kafka` and JSON Schema | ML and RAG-specific libraries |
-| Dataset laboratory | OpenTelemetry Demo 3.1.0, Collector file exporter, stdlib Python CLI | Feature engineering |
+| Dataset and features | OpenTelemetry Demo 3.1.0 captures; protobuf OTLP normalization; PyArrow Parquet; deterministic UTC windows | Model training and feature selection |
 | Event backbone | Apache Kafka 4.3.1 in single-node KRaft mode; raw, processed, and DLQ topics | Multi-node or managed production Kafka |
 | Testing and quality | JUnit, Spring Boot Test, Testcontainers PostgreSQL, pytest, Ruff, Kafka integration tests | Broader end-to-end suites |
 | Containers | Docker, Docker Compose | Production orchestration and cloud delivery |
@@ -36,7 +36,7 @@ The planned system consists of a React dashboard, a Spring Boot incident API, th
 services/       Independently buildable backend services
 frontend/       Future React application
 shared/         Versioned event contracts and future shared schemas
-ml/             Future offline ML workspaces
+ml/             Installable offline feature-engineering package and future ML workspaces
 rag/            Future RAG pipelines and evaluation
 infrastructure/ Docker foundations and the isolated telemetry lab
 data/           Raw capture location and future curated samples
@@ -49,9 +49,9 @@ Each Python service owns its dependencies; there is intentionally no root `requi
 
 ## Current Implementation Status
 
-Phase 3 includes the four service foundations, the Phase 1 offline dataset laboratory, the Phase 2 Kafka telemetry pipeline, and manual incident management backed by PostgreSQL. The incident API supports create, retrieve, filtered/paginated list, controlled updates, lifecycle transitions, and chronological timeline notes. Flyway owns the schema; Hibernate validates it; Testcontainers exercises the real PostgreSQL engine.
+Phase 4 includes all Phase 0–3 capabilities plus an installable offline feature package. It validates Phase 1 manifests, parses metrics/logs/traces with official OTLP protobuf messages, preserves event time and resource-level service identity, aggregates isolated 60-second UTC windows, and writes typed `service_windows.parquet` and `metric_windows.parquet` tables with manifest and quality sidecars.
 
-Phase 3 does **not** include automated Kafka-to-incident creation, feature engineering, ML models, anomaly detection, classification, RAG, LLM investigation, Redis, pgvector, AWS deployment, production observability, authentication, RBAC, or a frontend.
+Phase 4 does **not** include model training, anomaly detection, classification, MLflow, model serving, automated Kafka-to-incident creation, RAG, LLM investigation, Redis, pgvector, AWS deployment, production observability, authentication, RBAC, or a frontend.
 
 The implementation journals are [decisions.md](decisions.md), [flow.md](flow.md), and [features.md](features.md). Future phases should read these before changing established behavior.
 
@@ -72,7 +72,7 @@ Clone the repository and optionally copy the safe example environment file:
 Copy-Item .env.example .env
 ```
 
-The defaults are development-only values sufficient for local Phase 3 use. `.env` is ignored and must never contain committed secrets.
+The defaults are development-only values sufficient for the local stack. `.env` is ignored and must never contain committed secrets.
 
 Start PostgreSQL before running the incident service directly:
 
@@ -97,6 +97,27 @@ python scripts\telemetry_lab.py stop
 ```
 
 Captures are written to ignored directories under `data/raw/<run-id>/`. See [docs/telemetry-dataset.md](docs/telemetry-dataset.md) for the data contract, validation behavior, resource notes, and cleanup commands. The CLI uses only Python's standard library; the Java service does not run inside Conda.
+
+## Offline Feature Engineering
+
+Install Phase 4 independently; its columnar and OTLP dependencies are not added
+to any production service:
+
+```powershell
+conda activate aegis
+python -m pip install -e "ml\feature_engineering[test]"
+
+python -m aegis_features.cli inspect --run <run-id>
+python -m aegis_features.cli build --run <normal-run-id> --run <fault-run-id> --window-seconds 60
+python -m aegis_features.cli validate --dataset <dataset-id>
+python -m aegis_features.cli summary --dataset <dataset-id>
+```
+
+The pipeline is raw OTLP JSON → typed observations → event-time service windows
+→ model-ready Parquet features. Generated datasets under `data/features/` are
+ignored. See [docs/feature-engineering.md](docs/feature-engineering.md), the
+[telemetry inventory](docs/telemetry-feature-inventory.md), and the versioned
+[ML contracts](shared/contracts/ml/service-window-features-v1.md).
 
 ## Kafka Telemetry Pipeline
 
@@ -195,6 +216,10 @@ python -m pytest
 python -m ruff check .
 
 cd ..\..
+python -m pip install -e "ml\feature_engineering[test]"
+python -m pytest ml\feature_engineering\tests
+python -m ruff check ml\feature_engineering
+
 $env:KAFKA_INTEGRATION = "1"
 python -m pytest tests\integration -m kafka_integration
 ```
@@ -259,8 +284,9 @@ Invoke-RestMethod http://localhost:8003/health
 1. Phase 0: repository and service foundation (complete)
 2. Phase 1: telemetry generation and raw dataset capture (complete)
 3. Phase 2: Kafka event backbone and telemetry streaming pipeline (complete)
-4. Phase 3: incident management backend and PostgreSQL persistence (current)
-5. Phase 4 and later: feature engineering, ML, RAG, frontend, production observability, CI/CD, and AWS delivery
+4. Phase 3: incident management backend and PostgreSQL persistence (complete)
+5. Phase 4: ML feature engineering (current)
+6. Phase 5 and later: ML training, RAG, frontend, production observability, CI/CD, and AWS delivery
 
 Each later capability will be introduced as a separate scoped phase.
 
@@ -274,5 +300,5 @@ Each later capability will be introduced as a separate scoped phase.
 ## Future Deployment Strategy
 
 The planned portfolio deployment path is GitHub Actions to AWS IAM OIDC,
-Amazon ECR, an EC2 host, and Docker Compose. Phase 3 contains no AWS resources,
+Amazon ECR, an EC2 host, and Docker Compose. Phase 4 contains no AWS resources,
 deployment workflows, credentials, or production infrastructure.

@@ -149,3 +149,72 @@ a migration fails, or the ORM mapping does not match the migrated schema.
 - Kafka telemetry remains isolated from incident creation.
 - No automated anomaly-to-incident flow exists.
 - No authentication, Redis, ML, RAG, frontend, or cloud flow is introduced.
+
+## Phase 4 — Offline feature engineering
+
+### Before implementation
+
+Phase 1 produced validated manifests and OTLP JSONL files. No reusable parser,
+event-time window aggregation, model-ready schema, Parquet output, or dataset
+validator existed. The production `ml-service` remained a health-only shell.
+
+### Current modification
+
+Add an independently installable `ml/feature_engineering` package. It reads raw
+captures without modifying them and owns OTLP normalization, deterministic
+aggregation, schema/catalog contracts, quality gates, Parquet I/O, and CLI use.
+The long-running Compose topology and production services remain unchanged.
+
+### After implementation
+
+```text
+python -m aegis_features.cli build --run <run-id> ...
+  -> cli.main() / cli.run()
+  -> dataset.build_dataset()
+  -> loaders.load_manifest()
+  -> manifest/run/scenario/label/signal validation
+  -> loaders.iter_signal_records()
+  -> dataset.SourceDeduplicator.accept()
+  -> otlp.parse_export_request()
+  -> otlp.normalize_record() / normalize_metrics|logs|traces()
+  -> typed observations.py records
+  -> aggregation.build_service_windows() / build_metric_windows()
+  -> windows.window_start_ns() event-time assignment
+  -> quality.validate_observations() / validate_feature_rows()
+  -> dataset._write_parquet() with explicit PyArrow schemas
+  -> manifest.json + quality.json
+  -> dataset.validate_dataset() reopens and verifies both Parquet files
+```
+
+Failure paths reject missing/failed manifests, unknown
+scenarios, conflicting labels or duplicate IDs, excessive invalid timestamps,
+non-finite features, schema mismatches, and inconsistent manifest row counts.
+Negative span durations are counted and excluded from duration statistics. CLI
+errors are caught as `FeatureEngineeringError` or safe
+configuration `ValueError` and exit without exposing an internal stack trace.
+
+```text
+python -m aegis_features.cli inspect --run <run-id>
+  -> inspection.inspect_run()
+  -> load_manifest() / iter_signal_records()
+  -> normalize_record()
+  -> compact signal/service/metric/severity/kind inventory JSON
+
+python -m aegis_features.cli validate --dataset <dataset-id>
+  -> dataset.validate_dataset()
+  -> reopen manifest.json + quality.json + both Parquet tables
+  -> compare exact catalog order and Arrow types/nullability
+  -> recompute deterministic IDs and quality invariants
+  -> dataset.dataset_summary()
+
+python -m aegis_features.cli summary --dataset <dataset-id>
+  -> dataset.dataset_summary()
+  -> compact runs/scenarios/services/rows/time-range/class/features/status JSON
+```
+
+### Explicitly unchanged in Phase 4
+
+- The production `ml-service` remains health-only.
+- Kafka does not create features or incidents automatically.
+- No model training, fitted preprocessing, inference, MLflow, RAG, Redis,
+  authentication, frontend, or AWS path was added.

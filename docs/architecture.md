@@ -1,6 +1,6 @@
 # Planned Architecture
 
-Phase 3 preserves the service foundations, offline telemetry dataset laboratory, and Kafka telemetry path, then adds manual incident management backed by PostgreSQL. Automated telemetry-to-incident integration, intelligence, production observability, frontend, and cloud capabilities remain future design goals.
+Phase 4 preserves the operational service, incident, and Kafka paths, then adds an offline feature-engineering path over the labeled Phase 1 captures. Automated telemetry-to-incident integration, model training/inference, RAG, production observability, frontend, and cloud capabilities remain future design goals.
 
 ## Phase 3 Incident Management Path
 
@@ -19,7 +19,7 @@ Spring Boot Incident API
 PostgreSQL 18.4
   +-- incidents
   +-- incident_affected_services
-  +-- incident_timeline
+  +-- incident_timeline_entries
   +-- flyway_schema_history
 ```
 
@@ -47,6 +47,32 @@ OpenTelemetry Collector
 ```
 
 This isolated path uses the demo's built-in traffic generator and deterministic feature flags. It exists only to generate validated local experiment files. The file exporter is not the intended production architecture, and the telemetry service is not in this capture path. Phase 2 keeps this mode intact and adds the separate AegisAI Kafka event pipeline.
+
+## Phase 4 Offline Feature Path
+
+```text
+Phase 1 labeled captures
+        |
+        v
+manifest + metrics/logs/traces JSONL
+        |
+        v
+Official-protobuf OTLP normalization
+        |
+        v
+Event-time run/service windows
+        |
+        +--> service_windows.parquet
+        |
+        +--> metric_windows.parquet
+        |
+        +--> manifest.json + quality.json
+```
+
+This installable package is a batch development tool, not another long-running
+service. It preserves run/scenario lineage, prevents target leakage through a
+versioned column catalog, and validates output by reopening Parquet. It does not
+train or serve anomaly models.
 
 ## Phase 2 Streaming Path
 
@@ -107,7 +133,7 @@ not perform feature engineering, inference, or incident creation.
                    Grafana
 ```
 
-The diagram describes intended long-term logical relationships, not fully deployed Phase 3 infrastructure.
+The diagram describes intended long-term logical relationships, not fully deployed Phase 4 infrastructure.
 
 ## Service Responsibilities
 
@@ -123,9 +149,13 @@ deletion are not implemented.
 
 The entry point for future logs, metrics, traces, preprocessing, and feature generation. In Phase 2 its API remains health-only, while a separate worker consumes raw OTLP JSON from Kafka, validates it, emits processed envelopes, and routes invalid input to a DLQ. It does not create features or incidents.
 
-### ML Service
+### ML Service and offline ML workspace
 
-The future home for anomaly detection, incident classification, inference, model versioning, and ML monitoring. In Phase 0 it exposes only a health endpoint and has no ML dependencies or artifacts.
+The production ML service remains a health-only shell with no model dependency or
+inference endpoint. Phase 4's separate `ml/feature_engineering` workspace owns
+offline OTLP normalization, window aggregation, Parquet contracts, lineage, and
+quality validation. Future phases may reuse these transformations for training
+and online parity.
 
 ### RAG Service
 
@@ -167,7 +197,7 @@ More precisely: `OPEN -> INVESTIGATING|RESOLVED`,
 
 ### Machine learning
 
-Later phases will cover feature engineering, anomaly detection, incident classification, MLflow-based lifecycle management, and drift monitoring. Training code and model binaries are intentionally absent now.
+Phase 4 implements raw feature engineering only. Later phases will cover anomaly detection, incident classification, MLflow-based lifecycle management, training-time splitting/scaling/imputation, and drift monitoring. Training code and model binaries remain absent.
 
 ### Retrieval-augmented generation
 
@@ -197,4 +227,4 @@ EC2
 Docker Compose
 ```
 
-AWS resources, deployment automation, and credentials are outside Phase 3.
+AWS resources, deployment automation, and credentials are outside Phase 4.

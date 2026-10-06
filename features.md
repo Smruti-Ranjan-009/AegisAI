@@ -172,3 +172,114 @@ Statuses: `PLANNED`, `IN PROGRESS`, `DONE`, `BLOCKED`, `DEFERRED`.
 - API: create/read/list/filter/update/note, full lifecycle, validation/not-found/conflict errors, and nine ordered timeline entries passed.
 - Persistence: incident remained after incident-service restart, PostgreSQL restart, and final incident image recreation.
 - Shutdown: `docker compose down --remove-orphans` removed all containers/network while preserving `aegis-postgres-data` and `aegis-kafka-data`.
+
+## Phase 4 Features
+
+| ID | Status | Feature | Verification target |
+|---|---|---|---|
+| F-004-001 | DONE | Installable offline feature-engineering package and CLI | Editable install and all four commands passed |
+| F-004-002 | DONE | Official-protobuf OTLP normalization for metrics, logs, and traces | Signal fixtures, AnyValue, service, and timestamp tests passed |
+| F-004-003 | DONE | Deterministic event-time windows, run isolation, and deduplication | Boundary, multi-run, duplicate, and determinism tests passed |
+| F-004-004 | DONE | Wide service-window log/trace/volume features | Feature aggregation and empty-signal tests passed |
+| F-004-005 | DONE | Long metric-window features for all OTLP metric types | Gauge, Sum, Histogram, ExponentialHistogram, Summary tests passed |
+| F-004-006 | DONE | Parquet, catalog, manifest, quality report, and independent validation | End-to-end round trip and corruption gates passed |
+| F-004-007 | DONE | Real-data inventory, documentation, CI, and Phase 0–3 regression | Two-run dataset and full regression/build/Compose validation passed |
+
+## Phase 4 working history
+
+### F-004-001 — Offline package and CLI
+
+- **Scope:** Add a Python 3.12 `src`-layout package under `ml/feature_engineering`; do not modify service dependencies or add a container.
+- **Initial approach:** Standard `pyproject.toml`, explicit console/module CLI, and package-local tests/fixtures.
+- **Implementation:** Added the Python 3.12 `src` package, module/console CLI, pinned package-owned dependencies, and inspect/build/validate/summary commands.
+- **Verification:** Editable install succeeded; CLI commands passed on fixtures and both real runs.
+
+### F-004-002 — OTLP normalization
+
+- **Scope:** Validate OTLP JSON through official protobuf requests and normalize resource-scoped observations with central AnyValue conversion.
+- **Initial approach:** `opentelemetry-proto` 1.45.0 plus protobuf JSON parsing, preserving event timestamps and `__unknown__` service observations.
+- **Implementation:** Official request messages validate JSON; central AnyValue/resource helpers create typed metric, log, and span observations.
+- **Verification:** Fixtures cover every AnyValue shape, service fallback, event timestamps, five metric types, severities, status, kinds, and negative duration.
+
+### F-004-003 — Deterministic windows and input safety
+
+- **Scope:** UTC `[start, end)` windows, SHA-256 IDs, run isolation, label validation, and source-record deduplication.
+- **Initial approach:** Integer nanosecond floor division and canonical JSON hashes before observation expansion.
+- **Implementation:** Integer-nanosecond UTC windows and SHA-256 logical IDs group by run/service; record-level canonical hashing handles duplicates.
+- **Verification:** Exact boundaries, UTC, service/run separation, deterministic IDs/builds, identical duplicate, and conflicting duplicate tests pass.
+
+### F-004-004 — Service-window features
+
+- **Scope:** Stable log, trace, signal-volume, and metric-volume features without target leakage.
+- **Initial approach:** Typed observation accumulators with one shared deterministic percentile implementation.
+- **Implementation:** Stable catalog-driven log, trace, metric-volume, and total-volume features use structural-zero and nullable-statistic semantics.
+- **Verification:** Aggregation, safe rates, percentiles, error/kind semantics, and empty-signal tests pass; real sanity ranges pass.
+
+### F-004-005 — Metric-window features
+
+- **Scope:** Long-form, unit/type-safe metric aggregates with conservative histogram semantics.
+- **Initial approach:** Numeric Gauge/Sum statistics; semantically available Histogram/ExponentialHistogram/Summary aggregates; no counter rate.
+- **Implementation:** Metric windows group by name/unit/type and retain series cardinality; Gauge/Sum numeric and conservative aggregate statistics are type-aware.
+- **Verification:** All five metric types are covered; unit/type isolation passes; real captures contain 189 Sum, 54 Gauge, and 22 Histogram identities.
+
+### F-004-006 — Dataset contracts and quality
+
+- **Scope:** Explicit schemas, catalog APIs, Parquet output, manifest/quality lineage, and validator that reopens files.
+- **Initial approach:** PyArrow schemas and JSON sidecars with strict finite/range/identity/count checks.
+- **Implementation:** Explicit Arrow schemas, Zstandard Parquet, deterministic dataset IDs, JSON lineage/quality sidecars, and an independent reopen validator are complete.
+- **Verification:** Fixture builds match logically across repetitions; row-count corruption is rejected; the real dataset validates with 67/944 rows.
+
+### F-004-007 — Real validation and regressions
+
+- **Scope:** Inventory and build the existing normal plus CPU-saturation captures, update docs/CI, and preserve Phase 0–3 behavior.
+- **Initial approach:** Reuse captures read-only; generated Parquet remains ignored.
+- **Implementation:** Inventory/contracts/docs/README/architecture/CI are updated; generated outputs are ignored; no service or container dependency was added.
+- **Verification:** Two validated 30-second runs (473 records, 4,857,399 bytes) built dataset `phase4-v1-74f868854916` in 1.327649 seconds. Phase 0–3 regressions, six Docker image builds, full Compose health, and clean shutdown passed.
+
+## Phase 4 Bugs and Failed Attempts
+
+| ID | Status | Finding | Resolution |
+|---|---|---|---|
+| B-004-001 | FIXED | The first editable-install attempt could not reach PyPI because the managed sandbox denied network access while creating the isolated build environment. | Re-ran the same pinned install with approved network access; PyArrow, protobuf, OpenTelemetry proto, and the editable package installed successfully. |
+| B-004-002 | FIXED | The first Ruff pass reported 12 import-style, unused-import, and line-length violations after the initial package implementation. | Applied mechanical import/format corrections; package and test lint now pass. |
+| B-004-003 | FIXED | The default Java regression attempt again resolved Maven Wrapper storage to the sandbox-denied `C:\.m2` path. | Reused the Phase 3 approved Maven/Docker execution context; all 37 tests passed without source changes. |
+| B-004-004 | FIXED | The default Docker build could not read the user Buildx instance directory under the managed filesystem. | Re-ran the unchanged Compose build with approved Docker access; all six project images built. |
+
+### B-004-001 — Sandboxed dependency installation
+
+- **Discovery/reproduction:** `conda run -n aegis python -m pip install -e "ml\feature_engineering[test]"` exhausted retries because socket access to PyPI was denied.
+- **Root cause:** Dependency download was outside the default managed sandbox, not a package-resolution or version conflict.
+- **Attempted fixes:** The original command was allowed to fail and recorded; dependency pins were not loosened.
+- **Final fix:** Execute the same scoped installation with approved network access.
+- **Regression:** The package imports, all feature tests execute, and PyArrow writes/reads the real dataset.
+
+### B-004-002 — Initial lint findings
+
+- **Discovery/reproduction:** Ruff found one unused import, collection ABC imports from `typing`, one import-order issue, and long lines.
+- **Root cause:** Initial implementation prioritized an executable vertical slice before its first lint pass.
+- **Final fix:** Use `collections.abc`, remove the unused import, sort imports, and wrap long expressions without changing behavior.
+- **Regression:** `python -m ruff check ml\feature_engineering` reports all checks passed.
+
+### B-004-003 — Maven cache permission recurrence
+
+- **Discovery/reproduction:** The Phase 0–3 Java regression stopped before Maven startup with `AccessDeniedException: C:\.m2`.
+- **Root cause:** The same managed-environment home/cache resolution documented in B-003-001; no Java or Phase 4 behavior caused it.
+- **Final fix:** Run the unchanged wrapper command in the already approved Maven/Testcontainers context.
+- **Regression:** Java/PostgreSQL suite passed 37/37.
+
+### B-004-004 — Docker Buildx permission boundary
+
+- **Discovery/reproduction:** Compose configuration parsed, but the first image build could not access `C:\Users\smrut\.docker\buildx\instances`.
+- **Root cause:** Docker Desktop user configuration lies outside the writable workspace sandbox.
+- **Final fix:** Re-run the unchanged build with scoped approved Docker access.
+- **Regression:** All six project images built; the complete stack became healthy and later shut down cleanly.
+
+## Phase 4 final verification
+
+- Feature engineering: 29 tests passed; Ruff clean.
+- Real data: 473 records / 9,291 observations / 4,857,399 bytes produced 67 service windows and 944 metric windows; validation PASS.
+- Java/Spring/Testcontainers: 37 passed, 0 failures/errors/skips.
+- Telemetry service: 17 passed; ML service: 1 passed; RAG service: 1 passed; all Ruff checks clean.
+- Phase 1 telemetry lab: 14 passed; Phase 2 live Kafka integration: 2 passed.
+- Docker: Compose config valid; all six project images built; PostgreSQL, Kafka, worker, incident, telemetry, ML, and RAG health/startup passed.
+- Shutdown: all containers/network removed; PostgreSQL and Kafka named volumes preserved.

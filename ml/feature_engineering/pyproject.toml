@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=75,<82"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegis-feature-engineering"
+version = "0.1.0"
+description = "Deterministic offline telemetry feature engineering for AegisAI"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+  "opentelemetry-proto==1.45.0",
+  "protobuf==6.33.6",
+  "pyarrow==25.0.1",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest==8.4.0",
+  "ruff==0.11.13",
+]
+
+[project.scripts]
+aegis-features = "aegis_features.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["aegis_features"]

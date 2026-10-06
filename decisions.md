@@ -111,3 +111,77 @@ This journal records implementation decisions as they are made. Future phases mu
 - **Alternatives considered:** Downgrade the requested PostgreSQL image; force the legacy `PGDATA` layout.
 - **Rationale:** The official PostgreSQL 18 image uses major-version-specific subdirectories and explicitly requires the parent mount for upgrade-safe volume boundaries.
 - **Consequences:** The named volume and preservation/reset commands are unchanged, while its internal layout is compatible with PostgreSQL 18.
+
+## Phase 4 decisions
+
+### D-004-001 — Use event time and fixed UTC tumbling windows
+
+- **Date:** 2026-10-06
+- **Status:** Accepted
+- **Decision:** Aggregate each run and service into configurable 60-second UTC `[start, end)` windows using signal event timestamps, never file-read or build time. Window IDs are SHA-256 hashes of schema version, run ID, service, start, and duration.
+- **Alternatives considered:** Ingestion-time windows; sliding windows; random IDs.
+- **Rationale:** Captures and future at-least-once delivery may be replayed or delayed. Event-time tumbling windows are deterministic, inexpensive, and prevent run/scenario contamination.
+- **Consequences:** Missing timestamps are quality failures/drops under a configurable ratio, and late-arrival streaming policy remains future work.
+
+### D-004-002 — Stream normalization and use PyArrow only at the columnar boundary
+
+- **Date:** 2026-10-06
+- **Status:** Accepted
+- **Decision:** Parse JSONL incrementally, aggregate with typed Python records/dictionaries, and use PyArrow 25.0.1 for explicit-schema Parquet I/O.
+- **Alternatives considered:** Polars; Pandas plus PyArrow; pure PyArrow compute pipelines.
+- **Rationale:** The capture files are naturally record-oriented. Streaming avoids multiple full-dataframe copies on the 16 GB target, while direct PyArrow provides typed, compressed, interoperable output without adding another dataframe dependency.
+- **Trade-offs:** Python aggregation is not intended for distributed-scale telemetry; future scale may justify Polars lazy scans or a stream processor while preserving contracts.
+
+### D-004-003 — Decode OTLP JSON with official protobuf definitions
+
+- **Date:** 2026-10-06
+- **Status:** Accepted
+- **Decision:** Use `opentelemetry-proto` 1.45.0 and protobuf JSON parsing for metrics, logs, and traces. Centralize `AnyValue` conversion and resource-attribute handling after protobuf validation.
+- **Alternatives considered:** Reuse Phase 2's shallow dictionary validation; implement a complete custom OTLP tree parser.
+- **Rationale:** Official messages validate signal structure and enum/type semantics, while one normalization layer prevents scattered fragile dictionary traversal.
+- **Consequences:** Proto field-presence semantics define nullability; dependencies belong only to the offline feature package.
+
+### D-004-004 — Keep service features wide and metric features long
+
+- **Date:** 2026-10-06
+- **Status:** Accepted
+- **Decision:** Emit a stable wide `service_windows` table for bounded log/trace/volume features and a long `metric_windows` table keyed by metric name, unit, and type.
+- **Alternatives considered:** Pivot every metric into wide columns; average all metric values into service-level statistics.
+- **Rationale:** Metric names and units have different meanings and evolving cardinality. Long form prevents unit mixing and unbounded sparse schemas while preserving Phase 5 selection flexibility.
+- **Consequences:** Metric-aware modeling will join/filter the second table deliberately; raw high-cardinality attributes do not enter model features.
+
+### D-004-005 — Separate metadata, targets, and predictive features by catalog
+
+- **Date:** 2026-10-06
+- **Status:** Accepted
+- **Decision:** Versioned catalog APIs define ordered metadata, target, and feature columns. `run_id`, `scenario`, `label`, `is_anomaly`, and fault/capture provenance can never be returned as predictive features.
+- **Alternatives considered:** Infer features from numeric dtypes; maintain informal documentation only.
+- **Rationale:** Type inference would admit boolean targets and future numeric metadata, creating silent target leakage.
+- **Consequences:** Schema changes require catalog updates and regression tests; feature schema meaning is immutable within v1.
+
+### D-004-006 — Preserve genuine missing values and reject non-finite values
+
+- **Date:** 2026-10-06
+- **Status:** Accepted
+- **Decision:** Use structural zero for absent event counts/rates, keep undefined statistics nullable, drop timestamp-invalid observations within a configured limit, and reject NaN/infinity before and after Parquet writing. No fitted scaling or imputation occurs.
+- **Alternatives considered:** Zero-fill every field; fit imputers/scalers during dataset creation; fabricate timestamps.
+- **Rationale:** Zero latency is not equivalent to missing latency, and training-fitted transforms would leak information before Phase 5 splits data by run.
+- **Consequences:** Phase 5 owns grouped splitting, fitted preprocessing, and any imputation policy.
+
+### D-004-007 — Deduplicate source records before normalization
+
+- **Date:** 2026-10-06
+- **Status:** Accepted
+- **Decision:** When a source event ID is present, hash its canonical payload and count identical repeats once; reject the same ID with conflicting content. Phase 1 JSONL lines receive deterministic source identities derived from run, signal, and canonical payload because they do not carry Kafka event IDs.
+- **Alternatives considered:** Count all at-least-once records; deduplicate normalized observations independently.
+- **Rationale:** Record-level deduplication matches Phase 2 delivery semantics and avoids partially duplicated OTLP batches.
+- **Consequences:** Duplicate counts are reported in manifests; genuinely identical Phase 1 export batches within a run are treated as duplicates.
+
+### D-004-008 — Revalidate legacy Phase 1 manifests instead of mutating them
+
+- **Date:** 2026-10-06
+- **Status:** Accepted
+- **Decision:** Reject an explicit non-PASS `validation_status`, but treat legacy schema-v1 manifests without that newer field as eligible only after the Phase 4 loader revalidates their required fields, run identity, scenario/label, signal paths, non-empty records, and protobuf structure.
+- **Alternatives considered:** Modify the read-only manifests to add PASS; reject every existing Phase 1 capture because its schema predates the field.
+- **Rationale:** Phase 1 recorded PASS as the result of its validator rather than a manifest property. Revalidation preserves immutability and uses the already validated real captures without weakening input checks.
+- **Consequences:** Future manifests may carry an explicit status; either format still undergoes structural and OTLP validation.

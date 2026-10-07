@@ -27,3 +27,18 @@ not alter or replace capture mode.
 Use `python scripts\telemetry_lab.py --help` from the repository root. Full
 operating instructions and the dataset contract are in
 `docs/telemetry-dataset.md`.
+
+Phase 5 adds the committed `campaigns/anomaly-v1.json` plan. It interleaves six
+normal captures with two captures for each fault scenario using a consistent
+20-second warmup, 60-second capture, 7-second fault propagation delay, 3-second
+flush, and 15-second post-fault cooldown. Run or resume it with:
+
+```powershell
+python scripts\telemetry_lab.py campaign --plan anomaly-v1
+```
+
+The orchestrator calls the existing Phase 1 `run_capture` path, validates every
+capture, verifies restored flags and affected containers, and restarts `email`
+after memory-leak runs so retained memory cannot contaminate later captures.
+Progress, accepted IDs, and rejected attempts are checkpointed under ignored
+`.runtime/telemetry-lab/campaigns/`.

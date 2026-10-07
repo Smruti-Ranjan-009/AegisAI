@@ -185,3 +185,59 @@ This journal records implementation decisions as they are made. Future phases mu
 - **Alternatives considered:** Modify the read-only manifests to add PASS; reject every existing Phase 1 capture because its schema predates the field.
 - **Rationale:** Phase 1 recorded PASS as the result of its validator rather than a manifest property. Revalidation preserves immutability and uses the already validated real captures without weakening input checks.
 - **Consequences:** Future manifests may carry an explicit status; either format still undergoes structural and OTLP validation.
+
+## Phase 5 decisions
+
+### D-005-001 — Gate final training on independent validated capture runs
+
+- **Date:** 2026-10-06
+- **Status:** Accepted
+- **Decision:** Final Phase 5 training requires at least six normal runs, two runs for each of the five fault scenarios, and 150 eligible normal service windows. The two legacy 30-second captures are not mixed into the consistent 60-second anomaly campaign.
+- **Alternatives considered:** Train on the two existing captures; lower the gate; mix 30- and 60-second captures.
+- **Rationale:** Independent runs are the unit of generalization, while mixed capture durations would introduce avoidable acquisition confounding.
+- **Consequences:** The telemetry lab gains a deterministic campaign orchestrator, and training refuses an insufficient dataset.
+
+### D-005-002 — Separate run faults from injected-service localization labels
+
+- **Date:** 2026-10-06
+- **Status:** Accepted
+- **Decision:** `run_has_fault` is true for every row in a fault run, while `is_injected_fault_service` is true only for services listed by the authoritative scenario configuration. Non-target services in fault runs are propagation-ambiguous and are excluded from the primary service-level binary evaluation.
+- **Alternatives considered:** Label every service in a fault run anomalous; label all non-target services normal.
+- **Rationale:** Run-level incident detection and fault-service localization answer different questions, and treating propagated services as known negatives would create incorrect ground truth.
+- **Consequences:** Primary service metrics use injected targets versus eligible normal rows; run metrics aggregate with maximum service score.
+
+### D-005-003 — Split by run and fit only on normal training runs
+
+- **Date:** 2026-10-06
+- **Status:** Accepted
+- **Decision:** A deterministic seed-42 split assigns complete runs to train, validation, or test with zero overlap. Training contains normal runs only; validation and test each receive normal coverage and one run from every fault scenario. Test remains untouched until feature rules, detector choice, and threshold are frozen from validation.
+- **Alternatives considered:** Random row splitting; semi-supervised fault fitting; test-driven model selection.
+- **Rationale:** Neighboring windows from one capture are correlated, and test feedback must not influence the final detector.
+- **Consequences:** Exact run assignments are persisted with the model artifact.
+
+### D-005-004 — Train a global service detector with explicit eligibility
+
+- **Date:** 2026-10-06
+- **Status:** Accepted
+- **Decision:** The initial global detector excludes `__unknown__`, `flagd`, `load-generator`, `otelcol-contrib`, and `telemetry-docs`. Remaining application services are eligible. Service identity remains metadata rather than a predictive feature. Per-service metric baselines require five normal-training windows and otherwise fall back to a global metric baseline.
+- **Alternatives considered:** Include every observed identity; encode service names; fit unstable one-row service baselines.
+- **Rationale:** Infrastructure identities have different telemetry-generating roles, and identity encoding could let the model memorize services instead of behavior.
+- **Consequences:** Eligibility, exclusions, and baseline coverage are reported in artifacts.
+
+### D-005-005 — Use robust training-only metric deviations and exclude Sum values
+
+- **Date:** 2026-10-06
+- **Status:** Accepted
+- **Decision:** Metric baselines are keyed by service, metric name, unit, type, and statistic and fit only on normal training runs. Gauge mean, histogram/exponential-histogram mean, and summary mean are eligible. Raw Sum values are excluded because Phase 4 does not preserve enough temporality/reset semantics for safe counter rates. Scale is `1.4826 * MAD`, then `IQR / 1.349`, then a finite unit fallback marked uninformative.
+- **Alternatives considered:** Wide metric pivots; raw cumulative counter values; validation/test refitting.
+- **Rationale:** Robust deviation summaries use metric behavior without mixing semantics or leaking evaluation data.
+- **Consequences:** Unknown metrics increment missing-baseline and coverage features but never create new fitted state during transform.
+
+### D-005-006 — Compare two simple detectors and calibrate thresholds on normal validation data
+
+- **Date:** 2026-10-06
+- **Status:** Accepted
+- **Decision:** Compare a top-k robust z-score detector with a 300-tree Isolation Forest. Both expose larger-is-more-anomalous scores. Select using validation normal FPR proximity to the 5% target, then run detection, localization, supporting AUC, and simplicity. Calibrate each threshold from the 95th percentile of normal validation scores only.
+- **Alternatives considered:** Supervised classifiers; deep autoencoders; fault-label threshold tuning.
+- **Rationale:** The available campaign is small and synthetic, so transparent unsupervised baselines are more defensible than complex models.
+- **Consequences:** No minimum F1 is fabricated, and weak results are reported honestly.

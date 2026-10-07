@@ -281,6 +281,43 @@ class DemoEnvironment:
         self.clear_idle_capture()
         self.recreate_collector(self.config.idle_capture_dir)
 
+    def verify_services_running(self, services: Sequence[str]) -> None:
+        deadline = time.monotonic() + 90
+        last_states: dict[str, str] = {}
+        while time.monotonic() < deadline:
+            healthy = True
+            for service in services:
+                container_id = self.compose("ps", "--quiet", service).strip()
+                if not container_id:
+                    last_states[service] = "missing"
+                    healthy = False
+                    continue
+                state = self.runner.run(
+                    [
+                        "docker",
+                        "inspect",
+                        "--format",
+                        (
+                            "{{if .State.Health}}{{.State.Health.Status}}"
+                            "{{else}}{{.State.Status}}{{end}}"
+                        ),
+                        container_id,
+                    ],
+                    cwd=self.config.repo_root,
+                ).stdout.strip()
+                last_states[service] = state
+                if state not in {"healthy", "running"}:
+                    healthy = False
+            if healthy:
+                return
+            time.sleep(2)
+        states = ", ".join(f"{name}={state}" for name, state in sorted(last_states.items()))
+        raise LabError("Expected services did not recover to healthy/running state: " + states)
+
+    def restart_service(self, service: str) -> None:
+        self.compose("restart", service)
+        self.verify_services_running((service,))
+
     def _flagd_ofrep_port(self) -> int:
         output = self.compose("port", "flagd", "8016")
         first_line = next((line for line in output.splitlines() if line.strip()), "")

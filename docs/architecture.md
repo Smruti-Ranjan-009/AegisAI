@@ -1,6 +1,6 @@
 # Planned Architecture
 
-Phase 4 preserves the operational service, incident, and Kafka paths, then adds an offline feature-engineering path over the labeled Phase 1 captures. Automated telemetry-to-incident integration, model training/inference, RAG, production observability, frontend, and cloud capabilities remain future design goals.
+Phase 5 preserves the operational service, incident, Kafka, and feature paths, then adds reproducible offline anomaly training and evaluation over a validated synthetic-fault campaign. Automated telemetry-to-incident integration, model serving, classification, RAG, production observability, frontend, and cloud capabilities remain future design goals.
 
 ## Phase 3 Incident Management Path
 
@@ -74,6 +74,37 @@ service. It preserves run/scenario lineage, prevents target leakage through a
 versioned column catalog, and validates output by reopening Parquet. It does not
 train or serve anomaly models.
 
+## Phase 5 Offline Anomaly Path
+
+```text
+Interleaved validated capture campaign
+        |
+        v
+Phase 4 service + metric Parquet
+        |
+        v
+Readiness gate and run-level split
+        |
+        +--> normal training runs only
+        |       |
+        |       +--> metric median/MAD baselines
+        |       +--> median imputation
+        |       +--> robust z-score + Isolation Forest
+        |
+        +--> validation: selection + normal-only threshold
+        |
+        +--> untouched test: service/run/localization evaluation
+        |
+        v
+Ignored, reload-verified local artifact bundle
+```
+
+The path is a batch development workflow, not another deployed service. Run
+boundaries prevent neighboring windows leaking across splits. Scenario
+configuration supplies injected-service ground truth, while non-target services
+in fault runs remain propagation-ambiguous. No output is published to Kafka or
+used to create incidents.
+
 ## Phase 2 Streaming Path
 
 ```text
@@ -133,7 +164,7 @@ not perform feature engineering, inference, or incident creation.
                    Grafana
 ```
 
-The diagram describes intended long-term logical relationships, not fully deployed Phase 4 infrastructure.
+The diagram describes intended long-term logical relationships, not fully deployed Phase 5 infrastructure.
 
 ## Service Responsibilities
 
@@ -152,10 +183,11 @@ The entry point for future logs, metrics, traces, preprocessing, and feature gen
 ### ML Service and offline ML workspace
 
 The production ML service remains a health-only shell with no model dependency or
-inference endpoint. Phase 4's separate `ml/feature_engineering` workspace owns
-offline OTLP normalization, window aggregation, Parquet contracts, lineage, and
-quality validation. Future phases may reuse these transformations for training
-and online parity.
+inference endpoint. The separate `ml/feature_engineering` workspace owns offline
+OTLP normalization and Parquet contracts. Phase 5's `ml/anomaly_detection`
+workspace owns the readiness gate, run split, fitted preprocessing, unsupervised
+detectors, evaluation, and ignored artifacts. Serving and online parity remain
+future work.
 
 ### RAG Service
 
@@ -197,7 +229,11 @@ More precisely: `OPEN -> INVESTIGATING|RESOLVED`,
 
 ### Machine learning
 
-Phase 4 implements raw feature engineering only. Later phases will cover anomaly detection, incident classification, MLflow-based lifecycle management, training-time splitting/scaling/imputation, and drift monitoring. Training code and model binaries remain absent.
+Phase 5 implements offline anomaly detection using a robust top-k deviation
+baseline and Isolation Forest. Metric baselines, imputation, and detector fitting
+use normal training runs only; selection and threshold calibration use validation;
+the final report uses an untouched test split. Later phases will cover incident
+classification, MLflow-based lifecycle management, serving, and drift monitoring.
 
 ### Retrieval-augmented generation
 
@@ -227,4 +263,4 @@ EC2
 Docker Compose
 ```
 
-AWS resources, deployment automation, and credentials are outside Phase 4.
+AWS resources, deployment automation, and credentials are outside Phase 5.

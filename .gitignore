@@ -48,6 +48,7 @@ logs/
 *.onnx
 *.pt
 *.pth
+/artifacts/anomaly_detection/**
 
 # Local data and databases
 *.db

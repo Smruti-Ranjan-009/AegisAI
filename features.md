@@ -283,3 +283,66 @@ Statuses: `PLANNED`, `IN PROGRESS`, `DONE`, `BLOCKED`, `DEFERRED`.
 - Phase 1 telemetry lab: 14 passed; Phase 2 live Kafka integration: 2 passed.
 - Docker: Compose config valid; all six project images built; PostgreSQL, Kafka, worker, incident, telemetry, ML, and RAG health/startup passed.
 - Shutdown: all containers/network removed; PostgreSQL and Kafka named volumes preserved.
+
+## Phase 5 features
+
+### F-005-001 — Reproducible anomaly capture campaign
+
+- **Scope:** Define and orchestrate the minimum independent normal/fault capture set without duplicating Phase 1 capture logic.
+- **Initial approach:** Declarative interleaved plan, per-run validation, explicit cooldown/recovery, and generated accepted/rejected run record.
+- **Implementation:** `anomaly-v1.json` and the resumable campaign command reuse `run_capture`, checkpoint accepted/rejected attempts, verify recovery, and restart email after memory-leak runs.
+- **Verification:** Plan structure/count/recovery tests pass; the completed real campaign accepted 16 validated runs and recorded one rejected pre-capture startup attempt.
+- **Status:** Implemented and validated.
+
+### F-005-002 — Dataset readiness, labels, eligibility, and run split
+
+- **Scope:** Enforce scenario/run/window gates, authoritative service localization labels, explicit service exclusions, and zero-overlap deterministic splitting.
+- **Initial approach:** Validate Phase 4 lineage against raw manifests and `scenarios.json`; train on normal runs only.
+- **Implementation:** Readiness checks counts, eligible normal windows, raw files, duration consistency, restored flags, and scenario mappings; seed-42 split validation proves exact coverage and no overlap.
+- **Verification:** The legacy two-run dataset fails with all expected deficits; focused unit tests pass.
+- **Status:** Implemented.
+
+### F-005-003 — Leakage-safe metric and model feature matrix
+
+- **Scope:** Join catalog-owned service features with compact robust metric-deviation features.
+- **Initial approach:** Fit metric baselines and median imputation only on normal training rows; exclude unsafe Sum values and all metadata/targets.
+- **Implementation:** Phase 4 catalog columns combine with eight robust metric-deviation summaries; service/global median/MAD baselines and median imputation retain explicit fit/transform boundaries.
+- **Verification:** Tests cover normal-only fitting, missing baselines, Sum exclusion, immutable transform state, imputation, and metadata leakage.
+- **Status:** Implemented.
+
+### F-005-004 — Robust and Isolation Forest detectors
+
+- **Scope:** Implement a transparent robust top-k detector and a deterministic Isolation Forest with common score direction.
+- **Initial approach:** Compare only on validation and calibrate thresholds from normal validation scores.
+- **Implementation:** Both larger-is-more-anomalous detectors share the fitted matrix; validation comparison uses the predeclared rule and normal-only 95th-percentile thresholds.
+- **Verification:** Direction, zero-scale, deterministic forest, and threshold tests pass.
+- **Status:** Implemented.
+
+### F-005-005 — Evaluation and reproducible artifacts
+
+- **Scope:** Service, run, scenario, service, and localization metrics plus a reload-verified trusted local artifact bundle.
+- **Initial approach:** Deterministic model identity and machine-readable sidecars under ignored artifact storage.
+- **Implementation:** Service/run/scenario/service/localization reports and a coherent joblib bundle are written with deterministic identity, schema, split, threshold, predictions, and training report sidecars.
+- **Verification:** The synthetic 16-run integration fixture trains, saves, reloads, reproduces exact scores, and reopens predictions without Docker.
+- **Status:** Implemented and validated against the real Phase 5 dataset; reload reproduced exact scores.
+
+## Phase 5 bugs and failed attempts
+
+| ID | Status | Finding | Resolution |
+|---|---|---|---|
+| B-005-001 | FIXED | The first anomaly-package install could not reach PyPI from the managed sandbox. | Re-ran the unchanged pinned install with approved network access. |
+| B-005-002 | FIXED | Pytest could not enumerate the user-profile temporary directory in the managed filesystem. | Used a repository-local ignored `--basetemp`; all 22 initial tests passed. |
+| B-005-003 | FIXED | The first real normal campaign attempt was rejected when OpenTelemetry Demo Checkout was transiently unhealthy during initial startup. | The campaign recorded the full failure, accepted the other 15 planned runs, and a resumable pass captured only the missing sixth normal run. |
+| B-005-004 | FIXED | The first service regression batch ran pytest from the repository root, so service-local `app` packages were not importable. | Re-ran each unchanged suite from its owning service directory; telemetry 17/17, ML 1/1, and RAG 1/1 passed. |
+| B-005-005 | FIXED | Docker Desktop became unavailable after the capture campaign, temporarily blocking Java/Testcontainers, Kafka integration, and Docker image validation. | After the daemon was restarted, the lab was cleanly removed, Java passed 37/37, Kafka passed 2/2, and all six Compose images built. |
+
+## Phase 5 measured verification
+
+- Campaign: 16 accepted 60-second runs (6 normal; 2 for each fault scenario), 1 rejected pre-capture startup attempt, deterministic recovery and email restart applied.
+- Feature dataset: `phase4-v1-d0a2e0c1e709`, 561 service windows, 9,806 metric windows, 159 eligible normal windows; readiness PASS.
+- Split: 4 normal training runs, 1 normal plus 5 fault validation runs, 1 normal plus 5 fault test runs; zero overlap.
+- Model: 46 features; 107/138/150 train/validation/test rows; Isolation Forest selected; model `anomaly-v1-4c84405c580f`; exact reload verification passed.
+- Untouched test: service ROC-AUC 0.651, PR-AUC 0.444, precision 0.455, recall 0.417, F1 0.435, normal FPR 0.231; Hit@1 0.20, Hit@3 0.60, MRR 0.46.
+- The model detected all five test fault runs but also the sole normal run. Memory-leak injected-service recall was zero; results are explicitly non-production.
+- Phase 5: 22 unit and 1 integration tests passed; Phase 4: 29 passed; Phase 1 tooling: 16 passed; telemetry/ML/RAG services: 17/1/1 passed; Ruff clean.
+- Java/Spring/Testcontainers: 37 passed; Kafka integration: 2 passed; all six existing Compose images built; no Phase 5 container was added; all validation containers/networks were removed.

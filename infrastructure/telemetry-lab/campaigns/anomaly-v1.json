@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "name": "anomaly-v1",
+  "description": "Interleaved Phase 5 anomaly-detection capture campaign.",
+  "timings": {
+    "warmup_seconds": 20,
+    "capture_seconds": 60,
+    "fault_propagation_seconds": 7,
+    "collector_flush_seconds": 3,
+    "cooldown_seconds": 15
+  },
+  "required_runs": {
+    "normal": 6,
+    "cpu_saturation": 2,
+    "memory_leak": 2,
+    "service_failure": 2,
+    "dependency_failure": 2,
+    "high_latency": 2
+  },
+  "order": [
+    "normal",
+    "cpu_saturation",
+    "normal",
+    "memory_leak",
+    "service_failure",
+    "normal",
+    "dependency_failure",
+    "high_latency",
+    "normal",
+    "service_failure",
+    "cpu_saturation",
+    "normal",
+    "high_latency",
+    "memory_leak",
+    "dependency_failure",
+    "normal"
+  ],
+  "recovery": {
+    "after_fault": "restore flags, verify flags, verify affected services running, then cooldown",
+    "memory_leak": {
+      "restart_services": ["email"],
+      "reason": "Flag restoration stops new retention but cannot reclaim memory already retained."
+    }
+  }
+}

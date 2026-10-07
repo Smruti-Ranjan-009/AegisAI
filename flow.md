@@ -218,3 +218,62 @@ python -m aegis_features.cli summary --dataset <dataset-id>
 - Kafka does not create features or incidents automatically.
 - No model training, fitted preprocessing, inference, MLflow, RAG, Redis,
   authentication, frontend, or AWS path was added.
+
+## Phase 5 — Offline anomaly detection
+
+### Current modification
+
+Phase 5 adds a reproducible capture campaign plus an independently installable
+offline anomaly package. It consumes Phase 4 Parquet datasets and never changes
+the production `ml-service` API or the running service topology.
+
+### Dataset and training path
+
+```text
+anomaly-v1 campaign plan
+  -> existing telemetry-lab run_capture()
+  -> per-run Phase 1 validation
+  -> flag restoration / health check / cooldown / memory-service restart
+  -> generated campaign record with accepted and rejected run IDs
+  -> Phase 4 feature build over accepted campaign runs
+  -> Phase 5 readiness gate
+  -> deterministic run-level train / validation / test split
+  -> normal-training-only metric baselines and median imputer
+  -> RobustZScoreDetector and IsolationForest comparison on validation
+  -> normal-validation quantile threshold
+  -> one untouched test evaluation
+  -> ignored model bundle, manifest, metrics, split, schema, and predictions
+```
+
+Failure paths reject malformed campaign plans, failed/restoration-invalid
+captures, insufficient scenario counts, insufficient eligible normal windows,
+run overlap, fault rows in training, metadata leakage, non-finite matrices, and
+untrusted or inconsistent artifact inputs.
+
+### Offline scoring path
+
+```text
+python -m aegis_anomaly.cli score --model <model-id> --dataset <dataset-id>
+  -> load trusted local joblib bundle
+  -> validate Phase 4 dataset identity and schema
+  -> apply persisted metric baseline (transform only)
+  -> apply persisted median imputer and feature order
+  -> detector.score_samples()
+  -> persisted threshold decision and compact JSON summary
+```
+
+### Explicitly unchanged in Phase 5
+
+- No HTTP prediction endpoint or production `ml-service` dependency is added.
+- No Kafka inference, incident creation, classifier, MLflow, RAG, Redis,
+  frontend, observability pipeline, or AWS flow is added.
+
+### Validated Phase 5 instance
+
+The real campaign produced dataset `phase4-v1-d0a2e0c1e709` and passed the
+6-normal/2-per-fault/150-normal-window gate with 159 eligible normal windows.
+The deterministic split fitted 107 normal rows, selected Isolation Forest from
+138 validation rows, and evaluated once on 150 test rows. The trusted local
+bundle `anomaly-v1-4c84405c580f` reloads to bit-identical scores. Its weak
+service localization and false positive on the only normal test run remain
+reported limitations; no test-driven retuning was performed.

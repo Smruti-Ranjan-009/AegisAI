@@ -5,6 +5,7 @@ import shutil
 import sys
 from pathlib import Path
 
+from .campaign import load_campaign_plan, run_campaign
 from .capture import format_summary, run_capture
 from .config import LabConfig, Timings, load_config
 from .demo import DemoEnvironment
@@ -54,6 +55,11 @@ def build_parser(config: LabConfig) -> argparse.ArgumentParser:
 
     run_all_parser = subparsers.add_parser("run-all", help="Capture each declared scenario.")
     _add_timing_arguments(run_all_parser, config)
+
+    campaign_parser = subparsers.add_parser(
+        "campaign", help="Run or resume a validated declarative capture campaign."
+    )
+    campaign_parser.add_argument("--plan", required=True)
 
     validate_parser = subparsers.add_parser("validate", help="Validate an existing capture run.")
     validate_parser.add_argument("--run", required=True, dest="run_id")
@@ -174,6 +180,18 @@ def execute(arguments: argparse.Namespace, config: LabConfig) -> int:
             result = run_capture(config, demo, scenarios, scenario, _timings(arguments))
             print(format_summary(result, config.raw_data_dir))
             print()
+    elif arguments.command == "campaign":
+        plan_value = Path(arguments.plan)
+        plan_path = (
+            plan_value
+            if plan_value.is_file()
+            else config.infrastructure_dir / "campaigns" / f"{arguments.plan}.json"
+        )
+        plan = load_campaign_plan(plan_path, scenarios)
+        result = run_campaign(config, demo, scenarios, plan)
+        print(f"Campaign {plan.name}: {result['status']}")
+        for item in result["accepted_runs"]:
+            print(f"{item['scenario']}: {item['run_id']}")
     elif arguments.command == "validate":
         run_dir = resolve_run_directory(config.raw_data_dir, arguments.run_id, must_exist=True)
         result = validate_capture(run_dir)

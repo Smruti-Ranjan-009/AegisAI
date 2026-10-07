@@ -49,6 +49,7 @@ logs/
 *.pt
 *.pth
 /artifacts/anomaly_detection/**
+/artifacts/incident_classification/**
 
 # Local data and databases
 *.db
@@ -60,6 +61,8 @@ logs/
 !/data/samples/.gitkeep
 /data/features/**
 !/data/features/README.md
+/data/classification/**
+!/data/classification/README.md
 
 # Test and tooling artifacts
 .tox/

@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "name": "classification-v1",
+  "description": "Interleaved Phase 6 five-class incident-classification campaign.",
+  "timings": {
+    "warmup_seconds": 20,
+    "capture_seconds": 60,
+    "fault_propagation_seconds": 7,
+    "collector_flush_seconds": 3,
+    "cooldown_seconds": 15
+  },
+  "required_runs": {
+    "cpu_saturation": 6,
+    "memory_leak": 6,
+    "service_failure": 6,
+    "dependency_failure": 6,
+    "high_latency": 6
+  },
+  "accepted_existing_runs": [
+    {"run_id": "20261006T162755Z-cpu-saturation-cd2dfc", "scenario": "cpu_saturation"},
+    {"run_id": "20261006T164415Z-cpu-saturation-0efb0a", "scenario": "cpu_saturation"},
+    {"run_id": "20261006T163133Z-memory-leak-95dfc9", "scenario": "memory_leak"},
+    {"run_id": "20261006T164932Z-memory-leak-d0e340", "scenario": "memory_leak"},
+    {"run_id": "20261006T163334Z-service-failure-3ef506", "scenario": "service_failure"},
+    {"run_id": "20261006T164217Z-service-failure-6f492a", "scenario": "service_failure"},
+    {"run_id": "20261006T163701Z-dependency-failure-8b6645", "scenario": "dependency_failure"},
+    {"run_id": "20261006T165129Z-dependency-failure-218ba1", "scenario": "dependency_failure"},
+    {"run_id": "20261006T163854Z-high-latency-14c4b2", "scenario": "high_latency"},
+    {"run_id": "20261006T164740Z-high-latency-de52da", "scenario": "high_latency"}
+  ],
+  "order": [
+    "cpu_saturation", "memory_leak", "service_failure", "dependency_failure", "high_latency",
+    "cpu_saturation", "memory_leak", "service_failure", "dependency_failure", "high_latency",
+    "cpu_saturation", "memory_leak", "service_failure", "dependency_failure", "high_latency",
+    "cpu_saturation", "memory_leak", "service_failure", "dependency_failure", "high_latency",
+    "cpu_saturation", "memory_leak", "service_failure", "dependency_failure", "high_latency",
+    "cpu_saturation", "memory_leak", "service_failure", "dependency_failure", "high_latency"
+  ],
+  "recovery": {
+    "after_fault": "restore flags, verify flags, verify affected services running, then cooldown",
+    "memory_leak": {
+      "restart_services": ["email"],
+      "reason": "Flag restoration stops new retention but cannot reclaim memory already retained."
+    }
+  }
+}

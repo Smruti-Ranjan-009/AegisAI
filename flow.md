@@ -277,3 +277,98 @@ The deterministic split fitted 107 normal rows, selected Isolation Forest from
 bundle `anomaly-v1-4c84405c580f` reloads to bit-identical scores. Its weak
 service localization and false positive on the only normal test run remain
 reported limitations; no test-driven retuning was performed.
+
+## Phase 6 — Offline incident classification
+
+### Current modification
+
+Phase 6 preserves the frozen Phase 5 detector and adds a separate offline
+classification package. The intended path is:
+
+```text
+classification-v1 campaign (existing validated runs + new captures)
+  -> Phase 4 feature build over 30 fault runs
+  -> trusted Phase 5 adapter loads anomaly-v1-4c84405c580f
+  -> persisted transformer/imputer/Isolation Forest score eligible windows
+  -> deterministic top-three abnormal-context aggregation
+  -> one classification row per independent run
+  -> six-runs-per-class readiness and frozen development/test split
+  -> four-fold development-only CV with fold-local preprocessing
+  -> macro-F1 model selection
+  -> selected pipeline refit on all development runs
+  -> one untouched final-test evaluation
+  -> ignored classifier artifact save/reload and offline scoring
+```
+
+Failure paths will reject an unavailable or mismatched Phase 5 artifact,
+incompatible captures, unknown/normal classes, duplicate runs, non-finite
+features/scores, leakage-bearing feature names, split overlap, preprocessing
+outside classifier pipelines, and inconsistent artifact metadata.
+
+### Implemented call paths
+
+```text
+python scripts/telemetry_lab.py campaign --plan classification-v1
+  -> cli.execute()
+  -> campaign.load_campaign_plan()
+  -> campaign.run_campaign()
+  -> validate seeded Phase 5 runs
+  -> capture.run_capture() only while per-class counts are short
+  -> validation.validate_capture()
+  -> restore all flags / restart email for memory / service health / cooldown
+  -> atomic classification-v1-result.json checkpoint after every attempt
+
+python -m aegis_classifier.cli build --feature-dataset <id>
+  -> dataset.build_classification_dataset()
+  -> aegis_anomaly.data.load_feature_dataset()
+  -> anomaly_adapter.FrozenAnomalyAdapter()
+     -> verify trusted model ID, manifest, threshold, feature schema, bundle
+  -> FrozenAnomalyAdapter.score()
+     -> Phase 5 build_model_matrix()
+     -> persisted metric transformer.transform() only
+     -> persisted imputer.transform() only
+     -> persisted IsolationForestDetector.score_samples()
+  -> aggregation.aggregate_runs()
+     -> deterministic top-three sort
+     -> one catalog-owned row per fault run
+  -> split.build_frozen_split()
+     -> prefer two new seed-42-hashed test runs per class
+  -> incident_runs.parquet + manifest.json + quality.json + split.json
+
+python -m aegis_classifier.cli train --dataset <id>
+  -> dataset.load_classification_dataset()
+  -> readiness.check_readiness()
+  -> training.matrix_for_runs() creates disjoint development/test matrices
+  -> evaluate.cross_validate_pipeline() clones and fits preprocessing per fold
+  -> Logistic Regression and Random Forest development-only comparison
+  -> training._select_model() applies frozen macro-F1 rule
+  -> winning full pipeline.fit(all development runs)
+  -> ordered_probabilities(final test) exactly once
+  -> evaluate.classification_metrics()
+  -> artifacts.save_bundle() + JSON/Parquet sidecars
+  -> artifacts.load_bundle() through trusted loader
+  -> exact prediction/probability reload check
+
+python -m aegis_classifier.cli score --model <id> --dataset <id>
+  -> trusted ClassifierBundle load
+  -> persisted feature ordering
+  -> persisted imputer/scaler-if-present/classifier
+  -> predicted class + ordered uncalibrated probabilities
+```
+
+### Validated Phase 6 instance
+
+Campaign `classification-v1` produced 30 accepted fault runs. Phase 4 dataset
+`phase4-v1-45ebffa2ddf3` was scored by frozen anomaly model
+`anomaly-v1-4c84405c580f` into classification dataset
+`classification-v1-1090d5095a33`. Random Forest won development CV and model
+`classifier-v1-d37b9861572f` evaluated once on ten new test runs. Accuracy was
+0.300 and macro F1 was 0.270; CPU and high-latency recall were zero. These weak
+results remain frozen and reported without test-driven retuning.
+
+### Explicitly unchanged in Phase 6
+
+- The production `ml-service` remains health-only.
+- No Phase 5 retraining or threshold retuning occurs.
+- No prediction API, Kafka inference, incident creation, MLflow, model registry,
+  RAG, Redis, frontend, observability pipeline, or AWS flow is added.

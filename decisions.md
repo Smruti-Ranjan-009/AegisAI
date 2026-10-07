@@ -241,3 +241,77 @@ This journal records implementation decisions as they are made. Future phases mu
 - **Alternatives considered:** Supervised classifiers; deep autoencoders; fault-label threshold tuning.
 - **Rationale:** The available campaign is small and synthetic, so transparent unsupervised baselines are more defensible than complex models.
 - **Consequences:** No minimum F1 is fabricated, and weak results are reported honestly.
+
+## Phase 6 decisions
+
+### D-006-001 — Preserve a frozen two-stage anomaly/classification architecture
+
+- **Date:** 2026-10-07
+- **Status:** Accepted
+- **Decision:** Phase 6 classifies only fault runs into the five configured incident categories after scoring with the immutable Phase 5 artifact `anomaly-v1-4c84405c580f`. `normal` is not a classifier class. Phase 6 never refits the anomaly metric transformer, imputer, Isolation Forest, feature order, or threshold.
+- **Alternatives considered:** A single six-class model; retraining Phase 5 on the expanded campaign; tuning the anomaly gate for classifier performance.
+- **Rationale:** Detection and diagnosis are different questions, and changing the upstream detector would invalidate the completed Phase 5 evaluation and lineage.
+- **Consequences:** Every classification dataset and artifact records the upstream anomaly model ID and loads it through one trusted local adapter.
+
+### D-006-002 — Retain the discrete Phase 5 threshold exactly as stored
+
+- **Date:** 2026-10-07
+- **Status:** Accepted
+- **Decision:** Use the stored threshold `0.5359423344799236` and strict `score > threshold` decision unchanged. It differs from the reported p95 `0.5341476669796773` because calibration uses `numpy.quantile(..., method="higher")`, selecting an observed order statistic, while the diagnostic p95 uses NumPy's default linear interpolation.
+- **Alternatives considered:** Replace the threshold with the interpolated p95; retrain or retune Phase 5.
+- **Rationale:** The implementation is internally correct: the discrete threshold and strict comparison give the recorded validation FPR without splitting ties at the cutoff.
+- **Consequences:** Documentation distinguishes the selection quantile from the interpolated distribution summary; no Phase 5 defect or mutation is required.
+
+### D-006-003 — Require six independent validated runs per fault class
+
+- **Date:** 2026-10-07
+- **Status:** Accepted
+- **Decision:** Classification readiness requires exactly the five authoritative fault classes and at least six compatible validated 60-second captures per class. A resumable interleaved campaign reuses the two Phase 5 fault runs per class and captures four additional runs per class.
+- **Alternatives considered:** Train on the existing ten fault runs; weaken the per-class gate; manufacture balanced samples.
+- **Rationale:** One row represents one independent run, so the current two examples per class cannot support a four-fold development comparison plus an untouched test.
+- **Consequences:** The minimum dataset has 30 balanced rows; raw captures remain ignored but retained locally.
+
+### D-006-004 — Aggregate one service-independent row per run from top-three anomaly context
+
+- **Date:** 2026-10-07
+- **Status:** Accepted
+- **Decision:** Rank eligible service/windows by frozen Phase 5 anomaly score and aggregate the top three into a compact run vector. Sort by descending score, then window start and service name only as deterministic metadata tie-breakers. Service identity is never encoded or exposed as a predictive column.
+- **Alternatives considered:** Classify service windows independently; pivot by service; aggregate every one of the 46 Phase 5 features with many statistics.
+- **Rationale:** Run-level rows prevent correlated-window sample inflation, top-three context focuses on abnormal behavior, and service-independent names reduce direct scenario/service leakage.
+- **Consequences:** Telemetry can still indirectly identify services, which remains a documented controlled-dataset limitation.
+
+### D-006-005 — Freeze two newly captured test runs per class before model development
+
+- **Date:** 2026-10-07
+- **Status:** Accepted
+- **Decision:** Dataset construction deterministically selects two newly captured Phase 6 runs per class for the final test and persists the split before cross-validation. The remaining four runs per class form development. Seed 42 hashes run IDs for deterministic selection, with a deterministic all-run fallback for fixtures.
+- **Alternatives considered:** Random row splitting; using the previously inspected Phase 5 runs as all test cases; selecting the test after CV.
+- **Rationale:** The final ten-run test must be isolated from feature/model decisions and should emphasize captures not observed during Phase 5 analysis.
+- **Consequences:** Development/test intersections are forbidden, and test IDs cannot enter CV or preprocessing fitting.
+
+### D-006-006 — Compare leakage-safe Logistic Regression and Random Forest pipelines
+
+- **Date:** 2026-10-07
+- **Status:** Accepted
+- **Decision:** Use four-fold shuffled stratified CV with seed 42. Logistic Regression uses fold-local median imputation and standard scaling; Random Forest uses fold-local median imputation without scaling. Compare fixed, modest configurations rather than hyperparameter search.
+- **Alternatives considered:** Global preprocessing before CV; boosted trees; deep learning; broad tuning.
+- **Rationale:** Twenty development runs require low-variance, inspectable baselines and strict preprocessing isolation.
+- **Consequences:** Fold pipelines are independently fitted and the selected complete pipeline is refit on all development rows.
+
+### D-006-007 — Select by macro F1 with a predeclared deterministic tie-break
+
+- **Date:** 2026-10-07
+- **Status:** Accepted
+- **Decision:** Select the highest mean CV macro F1. Differences no greater than 0.01 are treated as practically tied, then balanced accuracy, lower macro-F1 standard deviation, and finally Logistic Regression simplicity decide.
+- **Alternatives considered:** Accuracy-only selection; final-test selection; per-class manual preference.
+- **Rationale:** All five balanced classes matter equally and the final test must remain untouched until selection and refit are frozen.
+- **Consequences:** Weak CV or test performance is reported rather than repaired through test-driven retuning.
+
+### D-006-008 — Persist a complete trusted classifier pipeline with deterministic identity
+
+- **Date:** 2026-10-07
+- **Status:** Accepted
+- **Decision:** Store the fitted sklearn pipeline, ordered features/classes, upstream anomaly ID, and aggregation contract in one joblib bundle plus JSON/Parquet sidecars. Model identity hashes dataset, upstream model, split, schema, aggregation, classifier configuration, and seed.
+- **Alternatives considered:** Save classifier weights alone; duplicate the Phase 5 artifact; use wall-clock model IDs.
+- **Rationale:** A coherent versioned bundle prevents preprocessing/order drift while retaining explicit Phase 5 lineage.
+- **Consequences:** Joblib loading is restricted to trusted local artifacts and reload must reproduce predictions and probabilities exactly.

@@ -346,3 +346,64 @@ Statuses: `PLANNED`, `IN PROGRESS`, `DONE`, `BLOCKED`, `DEFERRED`.
 - The model detected all five test fault runs but also the sole normal run. Memory-leak injected-service recall was zero; results are explicitly non-production.
 - Phase 5: 22 unit and 1 integration tests passed; Phase 4: 29 passed; Phase 1 tooling: 16 passed; telemetry/ML/RAG services: 17/1/1 passed; Ruff clean.
 - Java/Spring/Testcontainers: 37 passed; Kafka integration: 2 passed; all six existing Compose images built; no Phase 5 container was added; all validation containers/networks were removed.
+
+## Phase 6 features
+
+### F-006-001 — Resumable classification capture campaign
+
+- **Scope:** Reuse ten validated Phase 5 fault runs and capture four additional compatible runs per class without duplicating capture logic.
+- **Initial approach:** Extend the declarative campaign format with validated existing-run seeds, then use the existing resume, restoration, cooldown, health, and memory-recovery paths.
+- **Implementation:** `classification-v1.json` seeds ten validated Phase 5 fault runs and the extended campaign checkpoint preserves `existing` versus `campaign` provenance while revalidating every accepted run.
+- **Verification:** The resumed real campaign completed PASS with 30 accepted runs (six per class), twenty new captures, two recorded rejected attempts, flag recovery, cooldown, and memory-service restart.
+- **Status:** DONE.
+
+### F-006-002 — Frozen anomaly scoring and run aggregation
+
+- **Scope:** Load and verify the immutable Phase 5 artifact, score eligible service/windows, and produce one compact service-independent top-three row per fault run.
+- **Initial approach:** One artifact adapter plus a versioned 30-feature catalog and deterministic aggregation.
+- **Implementation:** `FrozenAnomalyAdapter` is the only joblib load path; it verifies model/schema/threshold sidecars and applies persisted Phase 5 transforms. Deterministic aggregation emits one 30-feature row from the top-three eligible windows without service columns.
+- **Verification:** Model `anomaly-v1-4c84405c580f` scored 776 real rows with finite scores and 219 threshold decisions; no Phase 5 fit method was called. Ranking/aggregation/leakage tests pass.
+- **Status:** DONE.
+
+### F-006-003 — Classification dataset, readiness, and frozen split
+
+- **Scope:** Persist one Parquet row per run with lineage/quality sidecars, enforce six runs per class, and freeze two new test runs per class before development.
+- **Initial approach:** Deterministic dataset identity and seed-42 run hashing with explicit leakage checks.
+- **Implementation:** Versioned catalog, Parquet/manifest/quality/split sidecars, raw-manifest readiness, and deterministic preference for two new test runs per class.
+- **Verification:** Dataset `classification-v1-1090d5095a33` passed at 30 unique rows, 30 features, six runs per class, 20 development and 10 test IDs with zero overlap.
+- **Status:** DONE.
+
+### F-006-004 — Cross-validated classifier comparison
+
+- **Scope:** Compare Logistic Regression and Random Forest using fold-local preprocessing, macro-F1 selection, and development-only diagnostics.
+- **Initial approach:** Fixed sklearn pipelines with four-fold stratified CV and a predeclared tie-break.
+- **Implementation:** Four-fold stratified CV clones complete sklearn pipelines per fold. Logistic Regression includes median imputation/scaling; Random Forest includes median imputation and the fixed small-data configuration.
+- **Verification:** Logistic macro F1 was 0.100; Random Forest was 0.303 and won by the frozen rule. The single untouched test produced 0.300 accuracy and 0.270 macro F1; no post-test retuning occurred.
+- **Status:** DONE.
+
+### F-006-005 — Reproducible classifier artifact and offline CLI
+
+- **Scope:** Build/readiness/train/evaluate/score commands, deterministic artifact sidecars, explainability diagnostics, and exact reload verification.
+- **Initial approach:** Trusted joblib pipeline plus manifest, split, metrics, CV, predictions, and report files.
+- **Implementation:** Build/anomaly-score/readiness/train/evaluate/score commands and deterministic bundle/JSON/Parquet sidecars include full lineage, class/feature ordering, split, metrics, diagnostics, and performance.
+- **Verification:** `classifier-v1-d37b9861572f` saved as a 66,012-byte bundle; a fresh load reproduced exact predictions and probabilities. Phase 6 package tests and Ruff pass.
+- **Status:** DONE.
+
+## Phase 6 bugs and failed attempts
+
+| ID | Status | Finding | Resolution |
+|---|---|---|---|
+| B-006-001 | FIXED | The first Phase 6 Ruff pass found three import-order/unused-import issues and four long lines in the initial package slice. | Applied mechanical import removal/reordering and line wrapping; no behavior or model methodology changed. |
+| B-006-002 | FIXED | The first real campaign had one Docker-startup health rejection, one telemetry-validation rejection, and the long-running command was later terminated by the execution environment with 7 new runs checkpointed. | No gate was weakened: rejected/uncheckpointed attempts remained excluded, the campaign resumed from its validated checkpoint, and it completed PASS with 30 accepted runs. |
+
+## Phase 6 measured verification
+
+- Campaign: 30 accepted 60-second fault runs, six per class; 20 new accepted runs; 2 recorded rejected attempts; 1 interrupted uncheckpointed raw attempt excluded; recovery complete.
+- Phase 4 dataset: `phase4-v1-45ebffa2ddf3`, 1,091 service windows, 18,116 metric windows, quality PASS, 33.521-second build.
+- Frozen anomaly scoring: 776 eligible rows, 219 strict threshold decisions, no failures or refitting.
+- Classification dataset: `classification-v1-1090d5095a33`, 30 rows, 30 features, balanced classes, 20/10 frozen split with zero overlap.
+- CV: Logistic macro F1 0.100; Random Forest macro F1 0.303; Random Forest selected without test data.
+- Untouched test: accuracy/balanced accuracy 0.300, macro F1 0.270, top-2 accuracy 0.600, ROC-AUC OVR macro 0.625, log loss 1.510. CPU/high-latency recall was zero.
+- Artifact: `classifier-v1-d37b9861572f`, 66,012 bytes, exact reload verification passed.
+- Automated verification: Phase 6 classifier 20 unit + 1 integration tests; Phase 5 anomaly 22 unit + 1 integration; Phase 4 features 29; telemetry lab 17; telemetry/ML/RAG services 17/1/1; Java 37; Kafka integration 2. All passed, and Ruff was clean across every Python scope.
+- Docker verification: all six project images built; the complete Compose stack reached healthy/running state (with `kafka-init` exiting 0); all four public health endpoints returned the expected service name and `UP`; validation containers and the network were removed while named volumes were preserved.

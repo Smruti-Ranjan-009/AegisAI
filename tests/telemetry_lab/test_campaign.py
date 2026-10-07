@@ -24,6 +24,25 @@ class CampaignPlanTests(unittest.TestCase):
         self.assertEqual(plan.timings.capture_seconds, 60)
         self.assertEqual(plan.restart_services["memory_leak"], ("email",))
         self.assertLess(max(len(list(group)) for group in _groups(plan.order)), 3)
+        self.assertEqual(plan.accepted_existing_runs, ())
+
+    def test_classification_plan_reuses_two_runs_per_fault_class(self) -> None:
+        config = load_config()
+        scenarios = load_scenarios(config.scenarios_file)
+        plan = load_campaign_plan(
+            config.infrastructure_dir / "campaigns" / "classification-v1.json", scenarios
+        )
+        self.assertEqual(set(plan.required_runs.values()), {6})
+        self.assertEqual(len(plan.accepted_existing_runs), 10)
+        self.assertEqual(Counter(scenario for _, scenario in plan.accepted_existing_runs), {
+            "cpu_saturation": 2,
+            "memory_leak": 2,
+            "service_failure": 2,
+            "dependency_failure": 2,
+            "high_latency": 2,
+        })
+        self.assertEqual(Counter(plan.order), Counter(plan.required_runs))
+        self.assertEqual(plan.restart_services["memory_leak"], ("email",))
 
     def test_plan_rejects_order_count_mismatch(self) -> None:
         config = load_config()

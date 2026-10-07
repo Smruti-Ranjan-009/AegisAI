@@ -42,3 +42,15 @@ capture, verifies restored flags and affected containers, and restarts `email`
 after memory-leak runs so retained memory cannot contaminate later captures.
 Progress, accepted IDs, and rejected attempts are checkpointed under ignored
 `.runtime/telemetry-lab/campaigns/`.
+
+Phase 6 adds `campaigns/classification-v1.json`. It revalidates and seeds the
+two Phase 5 fault runs per class, then captures only the missing runs until each
+of the five fault scenarios has six accepted 60-second captures:
+
+```powershell
+python scripts\telemetry_lab.py campaign --plan classification-v1
+```
+
+Accepted entries retain `existing` or `campaign` provenance so Phase 6 can
+prefer newly captured final-test runs. The plan uses the same timings and
+recovery policy as Phase 5 and remains safely resumable after interruption.

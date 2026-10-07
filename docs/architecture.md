@@ -1,6 +1,6 @@
 # Planned Architecture
 
-Phase 5 preserves the operational service, incident, Kafka, and feature paths, then adds reproducible offline anomaly training and evaluation over a validated synthetic-fault campaign. Automated telemetry-to-incident integration, model serving, classification, RAG, production observability, frontend, and cloud capabilities remain future design goals.
+Phase 6 preserves the operational service, incident, Kafka, feature, and frozen anomaly paths, then adds reproducible offline five-class incident classification over a validated synthetic-fault campaign. Automated telemetry-to-incident integration, model serving, RAG, production observability, frontend, and cloud capabilities remain future design goals.
 
 ## Phase 3 Incident Management Path
 
@@ -105,6 +105,38 @@ configuration supplies injected-service ground truth, while non-target services
 in fault runs remain propagation-ambiguous. No output is published to Kafka or
 used to create incidents.
 
+## Phase 6 Offline Classification Path
+
+```text
+Labeled OTLP telemetry
+        |
+        v
+Phase 4 Feature Engineering
+        |
+        v
+Frozen Phase 5 Anomaly Detection
+        |
+        v
+anomaly scores / top-three abnormal context
+        |
+        v
+one service-independent row per fault run
+        |
+        v
+development-only stratified cross-validation
+        |
+        v
+offline five-class incident probabilities
+```
+
+Phase 6 keeps `normal` outside the classifier and treats
+`anomaly-v1-4c84405c580f` as an immutable upstream dependency. Direct service
+identity, injected-service metadata, capture provenance, and targets cannot
+enter the 30-feature run matrix. Dataset construction freezes two newly
+captured runs per class before Logistic Regression and Random Forest are
+compared on the remaining development runs. No result is served or connected
+to Kafka or the incident API.
+
 ## Phase 2 Streaming Path
 
 ```text
@@ -164,7 +196,7 @@ not perform feature engineering, inference, or incident creation.
                    Grafana
 ```
 
-The diagram describes intended long-term logical relationships, not fully deployed Phase 5 infrastructure.
+The diagram describes intended long-term logical relationships, not fully deployed Phase 6 infrastructure.
 
 ## Service Responsibilities
 
@@ -186,8 +218,10 @@ The production ML service remains a health-only shell with no model dependency o
 inference endpoint. The separate `ml/feature_engineering` workspace owns offline
 OTLP normalization and Parquet contracts. Phase 5's `ml/anomaly_detection`
 workspace owns the readiness gate, run split, fitted preprocessing, unsupervised
-detectors, evaluation, and ignored artifacts. Serving and online parity remain
-future work.
+detectors, evaluation, and ignored artifacts. Phase 6's
+`ml/incident_classification` workspace owns frozen anomaly adaptation,
+service-independent run aggregation, supervised cross-validation, evaluation,
+and ignored classifier artifacts. Serving and online parity remain future work.
 
 ### RAG Service
 
@@ -232,8 +266,11 @@ More precisely: `OPEN -> INVESTIGATING|RESOLVED`,
 Phase 5 implements offline anomaly detection using a robust top-k deviation
 baseline and Isolation Forest. Metric baselines, imputation, and detector fitting
 use normal training runs only; selection and threshold calibration use validation;
-the final report uses an untouched test split. Later phases will cover incident
-classification, MLflow-based lifecycle management, serving, and drift monitoring.
+the final report uses an untouched test split. Phase 6 adds offline five-class
+incident classification from frozen anomaly-ranked context, comparing Logistic
+Regression and Random Forest with fold-local preprocessing and an untouched
+run-level final test. Later phases will cover MLflow-based lifecycle management,
+serving, and drift monitoring.
 
 ### Retrieval-augmented generation
 
@@ -263,4 +300,4 @@ EC2
 Docker Compose
 ```
 
-AWS resources, deployment automation, and credentials are outside Phase 5.
+AWS resources, deployment automation, and credentials are outside Phase 6.

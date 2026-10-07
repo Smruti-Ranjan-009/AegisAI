@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=75,<82"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegis-incident-classification"
+version = "0.1.0"
+description = "Reproducible offline incident classification for AegisAI"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+  "joblib==1.5.3",
+  "numpy==2.4.6",
+  "pyarrow==25.0.1",
+  "scikit-learn==1.9.0",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest==8.4.0",
+  "ruff==0.11.13",
+]
+
+[project.scripts]
+aegis-classifier = "aegis_classifier.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: small package integration tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["aegis_classifier"]

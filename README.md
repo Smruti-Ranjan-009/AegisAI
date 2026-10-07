@@ -2,15 +2,15 @@
 
 AI-powered incident intelligence platform combining ML-based anomaly detection, hybrid RAG, and event-driven microservices to diagnose distributed-system failures and generate grounded remediation recommendations.
 
-> **Current status: Phase 5 — Anomaly Detection**
+> **Current status: Phase 6 — Incident Classification**
 
 ## Overview
 
-AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 5 preserves the operational services and adds reproducible offline anomaly training and evaluation over validated Phase 4 feature datasets.
+AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 6 preserves the operational services and frozen anomaly detector, then adds reproducible offline five-class incident classification over validated fault campaigns.
 
 ## Problem Statement
 
-Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 5 evaluates offline anomaly detectors; it does not serve predictions or connect them to incident creation.
+Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 6 classifies already abnormal runs offline; it does not serve predictions or connect them to incident creation.
 
 ## Long-Term Architecture
 
@@ -22,7 +22,7 @@ The planned system consists of a React dashboard, a Spring Boot incident API, th
 | --- | --- | --- |
 | Incident API | Java 17, Spring Boot 3.4, REST, Validation, Spring Data JPA, Flyway | Kafka integration, authentication, RBAC |
 | Python services | Python 3.12, FastAPI, Pydantic, Uvicorn; telemetry worker uses `confluent-kafka` and JSON Schema | ML and RAG-specific libraries |
-| Dataset and ML | OpenTelemetry Demo 3.1.0 captures; protobuf OTLP normalization; PyArrow Parquet; deterministic UTC windows; NumPy/scikit-learn offline anomaly detection | Classification, model serving, MLflow, drift monitoring |
+| Dataset and ML | OpenTelemetry Demo 3.1.0 captures; protobuf OTLP normalization; PyArrow Parquet; deterministic UTC windows; frozen anomaly detection; offline five-class incident classification | Model serving, MLflow, drift monitoring |
 | Event backbone | Apache Kafka 4.3.1 in single-node KRaft mode; raw, processed, and DLQ topics | Multi-node or managed production Kafka |
 | Testing and quality | JUnit, Spring Boot Test, Testcontainers PostgreSQL, pytest, Ruff, Kafka integration tests | Broader end-to-end suites |
 | Containers | Docker, Docker Compose | Production orchestration and cloud delivery |
@@ -36,7 +36,7 @@ The planned system consists of a React dashboard, a Spring Boot incident API, th
 services/       Independently buildable backend services
 frontend/       Future React application
 shared/         Versioned event contracts and future shared schemas
-ml/             Installable offline feature-engineering and anomaly packages
+ml/             Installable feature-engineering, anomaly, and classification packages
 rag/            Future RAG pipelines and evaluation
 infrastructure/ Docker foundations and the isolated telemetry lab
 data/           Raw capture location and future curated samples
@@ -49,14 +49,15 @@ Each Python service owns its dependencies; there is intentionally no root `requi
 
 ## Current Implementation Status
 
-Phase 5 includes all Phase 0–4 capabilities plus an installable offline anomaly package and a reproducible 16-run capture campaign. It enforces a hard readiness gate and run-level splits, fits metric baselines and imputation on normal training runs only, compares a robust statistical detector with Isolation Forest on validation, calibrates a normal-validation threshold, and reports one untouched test evaluation with reload-verified artifacts.
+Phase 6 includes all Phase 0–5 capabilities plus an installable offline incident-classification package and a balanced 30-run fault dataset. It scores telemetry with the immutable Phase 5 anomaly artifact, aggregates the top-three abnormal service/windows into one service-independent row per run, compares Logistic Regression and Random Forest through development-only stratified cross-validation, and evaluates the selected pipeline once on a frozen two-runs-per-class test set.
 
-The implemented offline path is: normal telemetry → fitted normal baseline →
-anomaly scores → run-level detection → service localization. The measured
-portfolio-scale results and their limitations are documented in
-[docs/anomaly-detection.md](docs/anomaly-detection.md).
+The implemented offline path is: telemetry → anomaly detection → abnormal
+context aggregation → five-class incident prediction. Phase 5 results remain in
+[docs/anomaly-detection.md](docs/anomaly-detection.md); Phase 6 methodology,
+measured results, and limitations are in
+[docs/incident-classification.md](docs/incident-classification.md).
 
-Phase 5 does **not** include incident classification, MLflow, model serving, automated Kafka-to-incident creation, RAG, LLM investigation, Redis, pgvector, AWS deployment, production observability, authentication, RBAC, or a frontend. The production `ml-service` remains health-only.
+Phase 6 does **not** include MLflow, a model registry, model serving, automated Kafka-to-incident creation, RAG, LLM investigation, Redis, pgvector, AWS deployment, production observability, authentication, RBAC, or a frontend. The production `ml-service` remains health-only.
 
 The implementation journals are [decisions.md](decisions.md), [flow.md](flow.md), and [features.md](features.md). Future phases should read these before changing established behavior.
 
@@ -145,6 +146,30 @@ scenario, or 150 eligible normal service windows. Artifacts under
 `artifacts/anomaly_detection/` and raw campaign captures remain ignored. See
 [docs/anomaly-detection.md](docs/anomaly-detection.md) for label semantics,
 leakage controls, metric baselines, evaluation, and trusted-artifact guidance.
+
+## Offline Incident Classification
+
+Install Phase 5 and Phase 6 independently, then build one classification row
+per accepted fault run:
+
+```powershell
+conda activate aegis
+python -m pip install -e "ml\anomaly_detection[test]"
+python -m pip install -e "ml\incident_classification[test]"
+
+python scripts\telemetry_lab.py campaign --plan classification-v1
+python -m aegis_classifier.cli anomaly-score --feature-dataset <phase4-dataset-id>
+python -m aegis_classifier.cli build --feature-dataset <phase4-dataset-id>
+python -m aegis_classifier.cli readiness --dataset <classification-dataset-id>
+python -m aegis_classifier.cli train --dataset <classification-dataset-id>
+python -m aegis_classifier.cli evaluate --model <classifier-model-id>
+python -m aegis_classifier.cli score --model <classifier-model-id> --dataset <classification-dataset-id>
+```
+
+`normal` is not a classification class. The classifier runs only after the
+frozen anomaly stage and never encodes service identity. Generated datasets and
+artifacts remain ignored. See
+[docs/incident-classification.md](docs/incident-classification.md).
 
 ## Kafka Telemetry Pipeline
 
@@ -251,6 +276,10 @@ python -m pip install -e "ml\anomaly_detection[test]"
 python -m pytest ml\anomaly_detection\tests
 python -m ruff check ml\anomaly_detection
 
+python -m pip install -e "ml\incident_classification[test]"
+python -m pytest ml\incident_classification\tests
+python -m ruff check ml\incident_classification
+
 $env:KAFKA_INTEGRATION = "1"
 python -m pytest tests\integration -m kafka_integration
 ```
@@ -317,8 +346,9 @@ Invoke-RestMethod http://localhost:8003/health
 3. Phase 2: Kafka event backbone and telemetry streaming pipeline (complete)
 4. Phase 3: incident management backend and PostgreSQL persistence (complete)
 5. Phase 4: ML feature engineering (complete)
-6. Phase 5: anomaly detection (current)
-7. Phase 6 and later: classification, model lifecycle/serving, RAG, frontend, production observability, CI/CD, and AWS delivery
+6. Phase 5: anomaly detection (complete)
+7. Phase 6: incident classification (current)
+8. Phase 7 and later: model lifecycle/serving, RAG, frontend, production observability, CI/CD, and AWS delivery
 
 Each later capability will be introduced as a separate scoped phase.
 
@@ -332,5 +362,5 @@ Each later capability will be introduced as a separate scoped phase.
 ## Future Deployment Strategy
 
 The planned portfolio deployment path is GitHub Actions to AWS IAM OIDC,
-Amazon ECR, an EC2 host, and Docker Compose. Phase 5 contains no AWS resources,
+Amazon ECR, an EC2 host, and Docker Compose. Phase 6 contains no AWS resources,
 deployment workflows, credentials, or production infrastructure.

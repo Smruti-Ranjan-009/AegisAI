@@ -26,6 +26,7 @@ class CampaignPlan:
     required_runs: dict[str, int]
     order: tuple[str, ...]
     restart_services: dict[str, tuple[str, ...]]
+    accepted_existing_runs: tuple[tuple[str, str], ...]
 
 
 def _integer(mapping: dict[str, Any], name: str, *, minimum: int = 0) -> int:
@@ -47,6 +48,7 @@ def load_campaign_plan(path: Path, scenarios: dict[str, Scenario]) -> CampaignPl
     required = document.get("required_runs")
     order = document.get("order")
     recovery = document.get("recovery", {})
+    existing = document.get("accepted_existing_runs", [])
     if not isinstance(name, str) or not name:
         raise LabError("Campaign plan requires a non-empty name.")
     if not isinstance(timings_data, dict):
@@ -55,6 +57,8 @@ def load_campaign_plan(path: Path, scenarios: dict[str, Scenario]) -> CampaignPl
         raise LabError("Campaign plan requires non-empty required_runs.")
     if not isinstance(order, list) or not all(isinstance(item, str) for item in order):
         raise LabError("Campaign plan order must be an array of scenario names.")
+    if not isinstance(existing, list):
+        raise LabError("Campaign accepted_existing_runs must be an array.")
 
     required_runs: dict[str, int] = {}
     for scenario_name, count in required.items():
@@ -67,6 +71,27 @@ def load_campaign_plan(path: Path, scenarios: dict[str, Scenario]) -> CampaignPl
         expected = {name: required_runs[name] for name in sorted(required_runs)}
         actual = dict(sorted(Counter(order).items()))
         raise LabError(f"Campaign order counts {actual} do not match required_runs {expected}.")
+
+    accepted_existing: list[tuple[str, str]] = []
+    existing_ids: set[str] = set()
+    existing_counts: Counter[str] = Counter()
+    for item in existing:
+        if not isinstance(item, dict):
+            raise LabError("Campaign accepted existing run entries must be objects.")
+        run_id, scenario_name = item.get("run_id"), item.get("scenario")
+        if not isinstance(run_id, str) or not run_id or scenario_name not in required_runs:
+            raise LabError("Campaign accepted existing run identity/scenario is invalid.")
+        if run_id in existing_ids:
+            raise LabError(f"Campaign accepted existing run is duplicated: {run_id}.")
+        existing_ids.add(run_id)
+        existing_counts[scenario_name] += 1
+        accepted_existing.append((run_id, scenario_name))
+    for scenario_name, count in existing_counts.items():
+        if count > required_runs[scenario_name]:
+            raise LabError(
+                f"Campaign has {count} existing {scenario_name!r} runs but requires "
+                f"only {required_runs[scenario_name]}."
+            )
 
     restart_services: dict[str, tuple[str, ...]] = {}
     if not isinstance(recovery, dict):
@@ -96,6 +121,7 @@ def load_campaign_plan(path: Path, scenarios: dict[str, Scenario]) -> CampaignPl
         required_runs=required_runs,
         order=tuple(order),
         restart_services=restart_services,
+        accepted_existing_runs=tuple(accepted_existing),
     )
 
 
@@ -104,6 +130,10 @@ def campaign_result_path(config: LabConfig, plan: CampaignPlan) -> Path:
 
 
 def _new_result(plan: CampaignPlan) -> dict[str, Any]:
+    existing = [
+        {"run_id": run_id, "scenario": scenario, "source": "existing"}
+        for run_id, scenario in plan.accepted_existing_runs
+    ]
     return {
         "schema_version": 1,
         "campaign": plan.name,
@@ -118,7 +148,8 @@ def _new_result(plan: CampaignPlan) -> dict[str, Any]:
             "cooldown_seconds": plan.cooldown_seconds,
         },
         "required_runs": plan.required_runs,
-        "accepted_runs": [],
+        "accepted_existing_runs": existing,
+        "accepted_runs": existing,
         "rejected_attempts": [],
     }
 
@@ -134,6 +165,7 @@ def _load_progress(path: Path, plan: CampaignPlan) -> dict[str, Any]:
         result.get("campaign") != plan.name
         or result.get("timings") != _new_result(plan)["timings"]
         or result.get("required_runs") != plan.required_runs
+        or result.get("accepted_existing_runs") != _new_result(plan)["accepted_existing_runs"]
     ):
         raise LabError("Existing campaign result does not match the requested plan and timings.")
     accepted = result.get("accepted_runs")
@@ -155,7 +187,13 @@ def _validated_progress(
         if validation.scenario != item.get("scenario"):
             raise LabError(f"Campaign run {validation.run_id} scenario does not match progress.")
         if counts[validation.scenario] < plan.required_runs.get(validation.scenario, 0):
-            accepted.append({"run_id": validation.run_id, "scenario": validation.scenario})
+            accepted.append(
+                {
+                    "run_id": validation.run_id,
+                    "scenario": validation.scenario,
+                    "source": item.get("source", "campaign"),
+                }
+            )
             counts[validation.scenario] += 1
     return accepted, counts
 
@@ -202,7 +240,11 @@ def run_campaign(
                 demo.verify_services_running(scenario.expected_affected_services)
                 if plan.cooldown_seconds:
                     sleeper(plan.cooldown_seconds)
-            entry = {"run_id": validation.run_id, "scenario": validation.scenario}
+            entry = {
+                "run_id": validation.run_id,
+                "scenario": validation.scenario,
+                "source": "campaign",
+            }
             result["accepted_runs"].append(entry)
             counts[scenario_name] += 1
         except LabError as exc:

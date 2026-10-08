@@ -444,6 +444,7 @@ Statuses: `PLANNED`, `IN PROGRESS`, `DONE`, `BLOCKED`, `DEFERRED`.
 |---|---|---|---|
 | B-007-001 | FIXED | The initial MLflow 3.17 classifier log used the sklearn flavor's default skops serialization, which rejected trusted Random Forest internals (`sklearn.tree._tree.Tree` and `numpy.dtype`). The run failed before any classifier registry version was created. | Selected MLflow's explicit cloudpickle serialization for this trusted canonical pipeline, retained the original joblib as an auxiliary artifact, and hardened the CLI boundary to normalize unexpected third-party failures without routine stack traces. |
 | B-007-002 | FIXED | The first Java/Testcontainers regression reached 37 tests but reported eight infrastructure errors because the Docker Desktop daemon was stopped; no Java assertion failed. | Verified the missing Docker named pipe, started the installed Docker Desktop daemon, retained the required PostgreSQL-backed tests, and reran the unchanged Maven suite. |
+| B-007-003 | FIXED | Hosted workflow validation rejected the Phase 7 `model-lifecycle` job before scheduling because job-level `env` evaluated `${{ runner.temp }}` before the runner context was available. | Removed both early expressions and added a runtime Bash setup step that derives `AEGIS_MLFLOW_RUNTIME_ROOT`, `MLFLOW_TRACKING_URI`, and `MLFLOW_ARTIFACT_ROOT` from `$RUNNER_TEMP`, writes them to `$GITHUB_ENV`, and creates the temporary artifact directory without changing lifecycle tests. |
 
 ## Phase 7 measured verification
 

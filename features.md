@@ -407,3 +407,49 @@ Statuses: `PLANNED`, `IN PROGRESS`, `DONE`, `BLOCKED`, `DEFERRED`.
 - Artifact: `classifier-v1-d37b9861572f`, 66,012 bytes, exact reload verification passed.
 - Automated verification: Phase 6 classifier 20 unit + 1 integration tests; Phase 5 anomaly 22 unit + 1 integration; Phase 4 features 29; telemetry lab 17; telemetry/ML/RAG services 17/1/1; Java 37; Kafka integration 2. All passed, and Ruff was clean across every Python scope.
 - Docker verification: all six project images built; the complete Compose stack reached healthy/running state (with `kafka-init` exiting 0); all four public health endpoints returned the expected service name and `UP`; validation containers and the network were removed while named volumes were preserved.
+
+## Phase 7 features
+
+### F-007-001 — Isolated local MLflow environment
+
+- **Scope:** Version-pinned lifecycle package, repo-local SQLite tracking, filesystem artifacts, environment overrides, optional loopback-only UI, and secret-safe logging.
+- **Approach:** Keep MLflow out of services and core Phase 5/6 packages; make initialization idempotent and test it against temporary stores.
+- **Verification:** Repo-local initialization produced SQLite experiment IDs 1 and 2; the optional `127.0.0.1:5000` UI returned HTTP 200 and was stopped cleanly. Configuration, blank override, directory, and secret-key tests pass.
+- **Status:** DONE.
+
+### F-007-002 — Truthful frozen-artifact imports
+
+- **Scope:** Validate and hash the canonical Phase 5/6 artifacts, preserve lineage/metrics/limitations, log complete inference models, and register only real persisted models.
+- **Approach:** Dedicated anomaly/classifier importers use normal trusted loaders, explicit signatures, compact lineage artifacts, and idempotent registry lookup.
+- **Verification:** Real imports registered anomaly/classifier versions 1 from their normal trusted loaders, preserved the exact frozen metrics, and recorded canonical joblib hashes `35a5cb...9704` and `a9b24d...07b7`; repeated imports returned `REUSED` with no new version.
+- **Status:** DONE.
+
+### F-007-003 — Alias promotion, rollback, verification, and audit
+
+- **Scope:** Candidate/champion lifecycle with deterministic validation gates, dependency enforcement, alias resolution, JSONL history, and fixture-tested rollback.
+- **Approach:** Keep MLflow aliases authoritative while recording every transition locally; do not fabricate duplicate real versions.
+- **Verification:** Both candidate and champion aliases resolve to their single truthful v1; version/alias smoke inference passes, audit events were appended, missing/mismatched upstream and invalid promotions fail, and two-version fixture rollback reassigns champion without deletion.
+- **Status:** DONE.
+
+### F-007-004 — Lifecycle CLI, documentation, and CI
+
+- **Scope:** Init/import/promote/rollback/verify/audit/resolve commands, optional JSON output, model-lifecycle documentation, CI integration, and full regression validation.
+- **Approach:** Stable error codes and noninteractive commands over reusable lifecycle modules.
+- **Verification:** The dedicated package has 14 non-integration and 12 SQLite integration tests after final test classification, Ruff is clean, the real CLI/UI paths pass, and CI retains every earlier job while adding isolated lifecycle validation.
+- **Status:** DONE.
+
+## Phase 7 bugs and failed attempts
+
+| ID | Status | Finding | Resolution |
+|---|---|---|---|
+| B-007-001 | FIXED | The initial MLflow 3.17 classifier log used the sklearn flavor's default skops serialization, which rejected trusted Random Forest internals (`sklearn.tree._tree.Tree` and `numpy.dtype`). The run failed before any classifier registry version was created. | Selected MLflow's explicit cloudpickle serialization for this trusted canonical pipeline, retained the original joblib as an auxiliary artifact, and hardened the CLI boundary to normalize unexpected third-party failures without routine stack traces. |
+| B-007-002 | FIXED | The first Java/Testcontainers regression reached 37 tests but reported eight infrastructure errors because the Docker Desktop daemon was stopped; no Java assertion failed. | Verified the missing Docker named pipe, started the installed Docker Desktop daemon, retained the required PostgreSQL-backed tests, and reran the unchanged Maven suite. |
+
+## Phase 7 measured verification
+
+- MLflow 3.17.0; SQLite `sqlite:///C:/projects/AegisAI/.runtime/mlflow/mlflow.db`; filesystem artifact root `.runtime/mlflow/artifacts`; no container or always-on server added.
+- Experiments: anomaly `1`, classifier `2`; successful run IDs `dfe364018fa24c6ca3691141faed91c9` and `5e13ba2c69bf4ab98c22327db5a4931e`.
+- Registry: `AegisAI-AnomalyDetector` v1 and `AegisAI-IncidentClassifier` v1; both `candidate` and `champion` aliases resolve to v1; champion model URIs verified.
+- Imports: anomaly 3.580 seconds; classifier 3.287 seconds; repeated imports reused versions. Champion lookup was 0.037–0.038 seconds and full verification approximately 2.380 seconds per model.
+- Storage: SQLite 1,036,288 bytes; MLflow artifacts 1,698,581 bytes; logged anomaly/classifier models 531,178 / 422,529 bytes. The store retains the truthful failed pre-registration classifier run from B-007-001.
+- Full regressions: Phase 7 lifecycle 26 tests; Phase 6 classifier 21; Phase 5 anomaly 23; Phase 4 features 29; Phase 1 lab 17; telemetry/ML/RAG 17/1/1; Java 37; Kafka integration 2. All passed; Ruff clean; all six images built; full Compose health passed and validation containers/network were removed.

@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=75,<82"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegis-model-lifecycle"
+version = "0.1.0"
+description = "Local MLflow lifecycle management for frozen AegisAI models"
+readme = "README.md"
+requires-python = ">=3.12,<3.15"
+dependencies = [
+  "joblib==1.5.3",
+  "mlflow==3.17.0",
+  "numpy==2.4.6",
+  "pandas==3.0.6",
+  "scikit-learn==1.9.0",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest==8.4.0",
+  "ruff==0.11.13",
+]
+
+[project.scripts]
+aegis-lifecycle = "aegis_lifecycle.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: temporary SQLite MLflow registry integration tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["aegis_lifecycle"]

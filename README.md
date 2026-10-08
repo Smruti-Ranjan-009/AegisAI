@@ -2,15 +2,15 @@
 
 AI-powered incident intelligence platform combining ML-based anomaly detection, hybrid RAG, and event-driven microservices to diagnose distributed-system failures and generate grounded remediation recommendations.
 
-> **Current status: Phase 6 — Incident Classification**
+> **Current status: Phase 7 — MLflow Model Lifecycle**
 
 ## Overview
 
-AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 6 preserves the operational services and frozen anomaly detector, then adds reproducible offline five-class incident classification over validated fault campaigns.
+AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 7 preserves the frozen anomaly detector and incident classifier, then adds local MLflow experiment tracking, lineage, registry versions, candidate/champion promotion, rollback support, and audit history.
 
 ## Problem Statement
 
-Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 6 classifies already abnormal runs offline; it does not serve predictions or connect them to incident creation.
+Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 7 governs the existing offline models; it does not retrain or serve them or connect predictions to incident creation.
 
 ## Long-Term Architecture
 
@@ -22,7 +22,7 @@ The planned system consists of a React dashboard, a Spring Boot incident API, th
 | --- | --- | --- |
 | Incident API | Java 17, Spring Boot 3.4, REST, Validation, Spring Data JPA, Flyway | Kafka integration, authentication, RBAC |
 | Python services | Python 3.12, FastAPI, Pydantic, Uvicorn; telemetry worker uses `confluent-kafka` and JSON Schema | ML and RAG-specific libraries |
-| Dataset and ML | OpenTelemetry Demo 3.1.0 captures; protobuf OTLP normalization; PyArrow Parquet; deterministic UTC windows; frozen anomaly detection; offline five-class incident classification | Model serving, MLflow, drift monitoring |
+| Dataset and ML | OpenTelemetry Demo 3.1.0 captures; protobuf OTLP normalization; PyArrow Parquet; deterministic UTC windows; frozen anomaly detection and incident classification; MLflow 3.17 tracking and alias-based registry lifecycle | Model serving and drift monitoring |
 | Event backbone | Apache Kafka 4.3.1 in single-node KRaft mode; raw, processed, and DLQ topics | Multi-node or managed production Kafka |
 | Testing and quality | JUnit, Spring Boot Test, Testcontainers PostgreSQL, pytest, Ruff, Kafka integration tests | Broader end-to-end suites |
 | Containers | Docker, Docker Compose | Production orchestration and cloud delivery |
@@ -49,15 +49,17 @@ Each Python service owns its dependencies; there is intentionally no root `requi
 
 ## Current Implementation Status
 
-Phase 6 includes all Phase 0–5 capabilities plus an installable offline incident-classification package and a balanced 30-run fault dataset. It scores telemetry with the immutable Phase 5 anomaly artifact, aggregates the top-three abnormal service/windows into one service-independent row per run, compares Logistic Regression and Random Forest through development-only stratified cross-validation, and evaluates the selected pipeline once on a frozen two-runs-per-class test set.
+Phase 7 includes all Phase 0–6 capabilities plus an isolated `ml/model_lifecycle` package. It imports the immutable Phase 5 and Phase 6 artifacts retrospectively, records their exact metrics and lineage in a repo-local SQLite MLflow store, registers one truthful version of each model, and manages `candidate` / `champion` aliases through deterministic integrity and reproducibility gates.
 
 The implemented offline path is: telemetry → anomaly detection → abnormal
-context aggregation → five-class incident prediction. Phase 5 results remain in
+context aggregation → five-class incident prediction → MLflow tracking → model
+registry lifecycle. Phase 5 results remain in
 [docs/anomaly-detection.md](docs/anomaly-detection.md); Phase 6 methodology,
 measured results, and limitations are in
-[docs/incident-classification.md](docs/incident-classification.md).
+[docs/incident-classification.md](docs/incident-classification.md); Phase 7 is in
+[docs/model-lifecycle.md](docs/model-lifecycle.md).
 
-Phase 6 does **not** include MLflow, a model registry, model serving, automated Kafka-to-incident creation, RAG, LLM investigation, Redis, pgvector, AWS deployment, production observability, authentication, RBAC, or a frontend. The production `ml-service` remains health-only.
+Phase 7 does **not** include model retraining, model serving, automated Kafka-to-incident creation, RAG, LLM investigation, Redis, pgvector, AWS deployment, production observability, authentication, RBAC, or a frontend. The production `ml-service` remains health-only.
 
 The implementation journals are [decisions.md](decisions.md), [flow.md](flow.md), and [features.md](features.md). Future phases should read these before changing established behavior.
 
@@ -171,6 +173,31 @@ frozen anomaly stage and never encodes service identity. Generated datasets and
 artifacts remain ignored. See
 [docs/incident-classification.md](docs/incident-classification.md).
 
+## Local Model Lifecycle
+
+Install the isolated Phase 7 package alongside the two trusted model packages.
+The commands import existing artifacts; they do not retrain them:
+
+```powershell
+conda activate aegis
+python -m pip install -e "ml\anomaly_detection"
+python -m pip install -e "ml\incident_classification"
+python -m pip install -e "ml\model_lifecycle[test]"
+
+python -m aegis_lifecycle.cli --json init
+python -m aegis_lifecycle.cli --json import-anomaly --model-id anomaly-v1-4c84405c580f
+python -m aegis_lifecycle.cli --json import-classifier --model-id classifier-v1-d37b9861572f
+python -m aegis_lifecycle.cli --json audit
+python -m aegis_lifecycle.cli --json verify --model anomaly --alias champion
+python -m aegis_lifecycle.cli --json verify --model classifier --alias champion
+```
+
+The default SQLite database and MLflow artifact store are under ignored
+`.runtime/mlflow/`. The optional UI binds to `127.0.0.1:5000`; it is not part of
+Docker Compose. See [docs/model-lifecycle.md](docs/model-lifecycle.md) and the
+permanent [decisions](decisions.md), [flows](flow.md), and
+[feature/bug journal](features.md).
+
 ## Kafka Telemetry Pipeline
 
 Install the telemetry-service dependencies, then start Kafka, deterministic
@@ -280,6 +307,10 @@ python -m pip install -e "ml\incident_classification[test]"
 python -m pytest ml\incident_classification\tests
 python -m ruff check ml\incident_classification
 
+python -m pip install -e "ml\model_lifecycle[test]"
+python -m pytest ml\model_lifecycle\tests
+python -m ruff check ml\model_lifecycle
+
 $env:KAFKA_INTEGRATION = "1"
 python -m pytest tests\integration -m kafka_integration
 ```
@@ -347,8 +378,9 @@ Invoke-RestMethod http://localhost:8003/health
 4. Phase 3: incident management backend and PostgreSQL persistence (complete)
 5. Phase 4: ML feature engineering (complete)
 6. Phase 5: anomaly detection (complete)
-7. Phase 6: incident classification (current)
-8. Phase 7 and later: model lifecycle/serving, RAG, frontend, production observability, CI/CD, and AWS delivery
+7. Phase 6: incident classification (complete)
+8. Phase 7: MLflow experiment tracking and model lifecycle (current)
+9. Phase 8 and later: RAG, model serving, frontend, production observability, CI/CD, and AWS delivery
 
 Each later capability will be introduced as a separate scoped phase.
 
@@ -358,9 +390,11 @@ Each later capability will be introduced as a separate scoped phase.
 - Do not put passwords, API keys, cloud credentials, or tokens in source code or images.
 - Use environment variables locally and a managed secret store for future deployments.
 - Treat values in `.env.example` as non-production placeholders.
+- Keep the unauthenticated local MLflow UI bound to `127.0.0.1`; never expose it publicly.
+- Load joblib/cloudpickle model artifacts only from trusted locally generated sources.
 
 ## Future Deployment Strategy
 
 The planned portfolio deployment path is GitHub Actions to AWS IAM OIDC,
-Amazon ECR, an EC2 host, and Docker Compose. Phase 6 contains no AWS resources,
+Amazon ECR, an EC2 host, and Docker Compose. Phase 7 contains no AWS resources,
 deployment workflows, credentials, or production infrastructure.

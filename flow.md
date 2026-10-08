@@ -372,3 +372,93 @@ results remain frozen and reported without test-driven retuning.
 - No Phase 5 retraining or threshold retuning occurs.
 - No prediction API, Kafka inference, incident creation, MLflow, model registry,
   RAG, Redis, frontend, observability pipeline, or AWS flow is added.
+
+## Phase 7 — Frozen model lifecycle
+
+### Import paths
+
+```text
+Phase 5 canonical artifact
+  -> anomaly_importer validates manifest/model ID/schema/reload
+  -> integrity hashes canonical model and lineage files
+  -> tracking creates/reuses aegisai-anomaly-detection run
+  -> AnomalyPyFunc logs the complete frozen bundle contract
+  -> AegisAI-AnomalyDetector registry version
+  -> candidate alias
+  -> promotion validation
+  -> champion alias
+
+Phase 6 canonical artifact
+  -> classifier_importer validates manifest/model ID/schema/reload
+  -> lineage verifies anomaly-v1-4c84405c580f is registered
+  -> tracking creates/reuses aegisai-incident-classification run
+  -> MLflow sklearn logs the persisted classifier pipeline
+  -> AegisAI-IncidentClassifier registry version
+  -> candidate alias
+  -> promotion validation
+  -> champion alias
+```
+
+Both paths are retrospective `frozen_artifact_import` operations. They log
+existing metrics and compact lineage, never invoke training, and fail before
+registration on missing/corrupt artifacts, mismatched IDs, unsupported schema,
+or conflicting hashes.
+
+### Alias lifecycle paths
+
+```text
+promote(model, version, reason)
+  -> resolve registry version
+  -> verify approved tag, hashes, schema, metrics, lineage, signature, reload
+  -> preserve current champion as previous_champion when present
+  -> assign champion
+  -> update lifecycle tags
+  -> append audit.jsonl event
+
+rollback(model, version, reason)
+  -> resolve known approved version
+  -> run the same lifecycle verification
+  -> preserve displaced champion as previous_champion
+  -> reassign champion without deleting any version
+  -> append audit.jsonl event
+```
+
+`resolve_champion` and `verify --alias champion` expose future-safe internal
+resolution without modifying `services/ml-service` or adding online inference.
+
+### Actual Phase 7 files and call order
+
+```text
+cli.py:main
+  -> config.py:LifecycleConfig.from_environment
+  -> tracking.py:configure_tracking / initialize
+  -> experiments.py:ensure_experiment
+  -> anomaly_importer.py or classifier_importer.py
+  -> importers.py:import_anomaly / import_classifier
+       -> integrity.py:load_json_object + hashes_for
+       -> normal Phase 5/6 load_bundle
+       -> lineage.py compact-file allow-list
+       -> models.py input example / FrozenAnomalyPyFunc
+       -> mlflow.start_run + parameters/metrics/tags/artifacts
+       -> MLflow PyFunc or sklearn log_model
+       -> registry.py:find_imported_version / ensure_registered_model
+       -> MLflow-assigned registry version + candidate alias
+       -> verification.py:verify_version
+  -> promotion.py:promote
+       -> verify_version
+       -> champion / previous_champion aliases
+       -> audit.py:append_event
+```
+
+The real anomaly import created run `dfe364018fa24c6ca3691141faed91c9`
+and `AegisAI-AnomalyDetector` version 1. After champion promotion, the
+classifier import verified that upstream alias resolved
+`anomaly-v1-4c84405c580f`, then created run
+`5e13ba2c69bf4ab98c22327db5a4931e` and
+`AegisAI-IncidentClassifier` version 1. Both champion URIs load and smoke-score.
+
+Failure exits use stable codes for missing artifacts, integrity mismatch,
+manifest/model mismatch, unsupported schema, tracking/registry failure,
+missing version/alias, rejected promotion, and missing upstream dependency.
+Import conflicts stop before a new version. Promotion failures leave aliases
+unchanged. Raw OTLP and Parquet paths are rejected from lifecycle logging.

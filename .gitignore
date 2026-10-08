@@ -3,6 +3,9 @@
 .env.*
 !.env.example
 .runtime/
+/.runtime/mlflow/
+mlruns/
+mlartifacts/
 
 # Python
 __pycache__/

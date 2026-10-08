@@ -1,6 +1,6 @@
 # Planned Architecture
 
-Phase 6 preserves the operational service, incident, Kafka, feature, and frozen anomaly paths, then adds reproducible offline five-class incident classification over a validated synthetic-fault campaign. Automated telemetry-to-incident integration, model serving, RAG, production observability, frontend, and cloud capabilities remain future design goals.
+Phase 7 preserves the operational service, incident, Kafka, feature, anomaly, and classification paths, then adds local MLflow tracking and alias-based model lifecycle management around the two frozen models. Automated telemetry-to-incident integration, model serving, RAG, production observability, frontend, and cloud capabilities remain future design goals.
 
 ## Phase 3 Incident Management Path
 
@@ -137,6 +137,38 @@ captured runs per class before Logistic Regression and Random Forest are
 compared on the remaining development runs. No result is served or connected
 to Kafka or the incident API.
 
+## Phase 7 Local Model Lifecycle Path
+
+```text
+Telemetry
+    |
+    v
+Feature Engineering
+    |
+    v
+Frozen Anomaly Detection
+    |
+    v
+Frozen Incident Classification
+    |
+    v
+MLflow experiment tracking
+    |
+    v
+SQLite-backed Model Registry
+    |
+    +--> candidate
+    |
+    +--> champion
+```
+
+Phase 7 retrospectively imports the exact Phase 5 and Phase 6 artifacts. It
+logs their original parameters, metrics, limitations, compact dataset lineage,
+signatures, model cards, and SHA-256 integrity metadata without retraining.
+Registry aliases are promoted only after deterministic integrity, schema,
+lineage, reload, and smoke-inference gates. The local store is single-user and
+Git-ignored; no runtime service or root Compose container depends on MLflow.
+
 ## Phase 2 Streaming Path
 
 ```text
@@ -196,7 +228,7 @@ not perform feature engineering, inference, or incident creation.
                    Grafana
 ```
 
-The diagram describes intended long-term logical relationships, not fully deployed Phase 6 infrastructure.
+The diagram describes intended long-term logical relationships, not fully deployed Phase 7 infrastructure.
 
 ## Service Responsibilities
 
@@ -221,7 +253,9 @@ workspace owns the readiness gate, run split, fitted preprocessing, unsupervised
 detectors, evaluation, and ignored artifacts. Phase 6's
 `ml/incident_classification` workspace owns frozen anomaly adaptation,
 service-independent run aggregation, supervised cross-validation, evaluation,
-and ignored classifier artifacts. Serving and online parity remain future work.
+and ignored classifier artifacts. Phase 7's isolated `ml/model_lifecycle`
+workspace owns local MLflow tracking, registry aliases, integrity verification,
+promotion, rollback, and audit. Serving and online parity remain future work.
 
 ### RAG Service
 
@@ -269,8 +303,9 @@ use normal training runs only; selection and threshold calibration use validatio
 the final report uses an untouched test split. Phase 6 adds offline five-class
 incident classification from frozen anomaly-ranked context, comparing Logistic
 Regression and Random Forest with fold-local preprocessing and an untouched
-run-level final test. Later phases will cover MLflow-based lifecycle management,
-serving, and drift monitoring.
+run-level final test. Phase 7 adds local MLflow 3.17 tracking, SQLite registry
+metadata, dataset/model integrity hashes, and candidate/champion lifecycle over
+those frozen outputs. Later phases may add serving and drift monitoring.
 
 ### Retrieval-augmented generation
 
@@ -300,4 +335,4 @@ EC2
 Docker Compose
 ```
 
-AWS resources, deployment automation, and credentials are outside Phase 6.
+AWS resources, deployment automation, and credentials are outside Phase 7.

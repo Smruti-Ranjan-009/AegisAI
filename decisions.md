@@ -315,3 +315,77 @@ This journal records implementation decisions as they are made. Future phases mu
 - **Alternatives considered:** Save classifier weights alone; duplicate the Phase 5 artifact; use wall-clock model IDs.
 - **Rationale:** A coherent versioned bundle prevents preprocessing/order drift while retaining explicit Phase 5 lineage.
 - **Consequences:** Joblib loading is restricted to trusted local artifacts and reload must reproduce predictions and probabilities exactly.
+
+## Phase 7 decisions
+
+### D-007-001 — Import frozen models retrospectively instead of rerunning training
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Treat `anomaly-v1-4c84405c580f` and `classifier-v1-d37b9861572f` as immutable canonical inputs. Phase 7 validates, hashes, logs, registers, and promotes them without invoking Phase 5/6 training.
+- **Rationale:** Their final test sets have already been observed. Retuning or silently rebuilding would invalidate the established evaluation history.
+- **Consequences:** MLflow runs are explicitly tagged `frozen_artifact_import`; canonical artifacts remain in their Phase 5/6 directories.
+
+### D-007-002 — Use a repo-local SQLite registry and filesystem artifact store
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Default tracking metadata to `.runtime/mlflow/mlflow.db` and artifacts to `.runtime/mlflow/artifacts`, with environment overrides for tests and future environments.
+- **Rationale:** SQLite supports MLflow Model Registry for a single-developer local workflow without coupling lifecycle metadata to incident-service PostgreSQL or a permanent container.
+- **Consequences:** The store is local, single-user, Git-ignored, and not a production topology.
+
+### D-007-003 — Use stable experiments, registry names, and aliases
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Use `aegisai-anomaly-detection` / `aegisai-incident-classification`, registered models `AegisAI-AnomalyDetector` / `AegisAI-IncidentClassifier`, and `candidate`, `champion`, and `previous_champion` aliases.
+- **Rationale:** Registry-assigned versions and aliases separate stable consumer routing from implementation IDs and avoid legacy stage semantics.
+- **Consequences:** Future consumers resolve aliases rather than hardcoding registry versions; Phase 7 does not wire this into a runtime service.
+
+### D-007-004 — Preserve complete model behavior in MLflow representations
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Log anomaly inference as an MLflow PyFunc around the trusted complete Phase 5 bundle and log the classifier's persisted sklearn pipeline with an explicit signature and input example. Retain both original joblib bundles as auxiliary artifacts.
+- **Rationale:** Registering only the raw Isolation Forest would discard imputation, feature ordering, and threshold semantics; the classifier already has a coherent sklearn pipeline.
+- **Consequences:** Model inputs are ordered predictive features only. Joblib remains trusted-local code execution and is never accepted from arbitrary remote paths.
+
+### D-007-005 — Make content hashes and source lineage registry invariants
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Hash canonical joblib, manifest, schema, split, dataset manifest, and quality files where available; persist compact integrity and model-card artifacts plus key hashes in version tags.
+- **Rationale:** A registry version must be traceable to the exact validated local output rather than merely sharing a model ID.
+- **Consequences:** Identical imports reuse a version; the same source model ID with a different joblib hash fails as an integrity conflict.
+
+### D-007-006 — Gate promotion on governance and reproducibility, not new performance thresholds
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Promotion requires an existing version, approved validation tag, supported schema, finite required metrics, matching source hash/model ID, required lineage artifacts, dependency resolution, signature presence, and smoke reload/inference.
+- **Rationale:** Phase 7 manages already evaluated models; inventing accuracy or F1 cutoffs after seeing test results would be metric laundering.
+- **Consequences:** Weak known metrics and limitations remain visible but do not block truthful initial lifecycle registration.
+
+### D-007-007 — Audit every alias transition and implement rollback as reassignment
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Append candidate, promotion, and rollback events to `.runtime/mlflow/audit.jsonl`; rollback verifies an approved target, moves `champion`, preserves the displaced version as `previous_champion`, and never deletes versions.
+- **Rationale:** Alias history needs human-readable local evidence in addition to current MLflow state.
+- **Consequences:** Real rollback becomes actionable only after another real version exists; multi-version behavior is tested with fixtures rather than fake real imports.
+
+### D-007-008 — Pin MLflow in the isolated lifecycle package and keep core ML optional
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** `ml/model_lifecycle` owns the exact MLflow 3.x pin and its tests. Phase 5/6 algorithms and all runtime services remain free of MLflow imports.
+- **Rationale:** Lifecycle concerns should wrap existing artifacts without contaminating training math or production service dependency sets.
+- **Consequences:** Direct SQLite workflows need no always-on server; the optional UI binds to `127.0.0.1` only.
+
+### D-007-009 — Explicitly use trusted cloudpickle for the frozen Random Forest pipeline
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Log the canonical Phase 6 sklearn pipeline with MLflow's explicit cloudpickle serialization format instead of MLflow 3.17's default skops validation.
+- **Rationale:** Skops rejected `sklearn.tree._tree.Tree` and `numpy.dtype` while importing the already trusted locally generated Random Forest. Adding those types to a generic allow-list offers no security benefit over the repository's existing trusted joblib/cloudpickle boundary.
+- **Consequences:** Classifier models remain trusted-only and must never be loaded from arbitrary remote sources. The failure did not create a classifier registry version.

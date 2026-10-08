@@ -462,3 +462,44 @@ manifest/model mismatch, unsupported schema, tracking/registry failure,
 missing version/alias, rejected promotion, and missing upstream dependency.
 Import conflicts stop before a new version. Promotion failures leave aliases
 unchanged. Raw OTLP and Parquet paths are rejected from lifecycle logging.
+
+## Phase 8 knowledge ingestion flow
+
+```text
+knowledge Markdown files
+       -> front-matter validation and normalized parsing
+       -> stable document IDs and semantic checksums
+       -> heading-aware 400/60 token chunking
+       -> injected embedding provider
+            real: BAAI/bge-small-en-v1.5 on local CPU
+            tests/CI: deterministic fake vectors
+       -> one PostgreSQL transaction per corpus ingestion
+            rag.documents
+            rag.chunks vector(384)
+            rag.ingestion_runs
+       -> JSON run manifest and quality report under .runtime/rag
+```
+
+`rag/ingestion` owns this flow and its Alembic schema. The FastAPI RAG service
+remains health-only. Phase 8 validation may execute one exact distance query to
+prove vectors are usable, but no retrieval, ranking, generation, or RAG API is
+introduced.
+
+### Actual Phase 8 ownership and call order
+
+```text
+rag/knowledge/**/*.md
+  -> parsing.discover_documents
+  -> frontmatter.validate_metadata
+  -> chunking.chunk_corpus
+  -> SentenceTransformerProvider or injected FakeEmbeddingProvider
+  -> embeddings.validate_vectors
+  -> KnowledgeRepository transaction
+  -> rag.documents + rag.chunks + rag.ingestion_runs
+  -> manifest.write_run_outputs under .runtime/rag/ingestion
+```
+
+`migrate` applies `rag/ingestion/migrations` before any repository connection
+expects the vector type. `inspect` remains database- and model-independent.
+`validate --smoke-query` checks stored normalization/dimensions and issues only
+the exact distance query needed to prove the vector contract.

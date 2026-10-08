@@ -389,3 +389,85 @@ This journal records implementation decisions as they are made. Future phases mu
 - **Decision:** Log the canonical Phase 6 sklearn pipeline with MLflow's explicit cloudpickle serialization format instead of MLflow 3.17's default skops validation.
 - **Rationale:** Skops rejected `sklearn.tree._tree.Tree` and `numpy.dtype` while importing the already trusted locally generated Random Forest. Adding those types to a generic allow-list offers no security benefit over the repository's existing trusted joblib/cloudpickle boundary.
 - **Consequences:** Classifier models remain trusted-only and must never be loaded from arbitrary remote sources. The failure did not create a classifier registry version.
+
+## Phase 8 decisions
+
+### D-008-001 — Keep Phase 8 at the ingestion and vector-storage boundary
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Phase 8 creates a curated knowledge corpus, deterministic ingestion, and a pgvector-backed knowledge store only. Retrieval, ranking, question answering, generation, and model serving remain future work.
+- **Rationale:** A measurable, independently testable storage boundary prevents later RAG behavior from being hidden inside ingestion code.
+- **Consequences:** The CLI may issue a minimal exact vector smoke query for storage validation, but exposes no retrieval or RAG API.
+
+### D-008-002 — Use BGE small English v1.5 as an optional local CPU embedding provider
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Real ingestion uses `BAAI/bge-small-en-v1.5`, 384-dimensional normalized embeddings, and its tokenizer. The heavyweight provider is an optional package extra.
+- **Rationale:** The model is small enough for local CPU validation while establishing the frozen vector dimension needed by the database contract.
+- **Consequences:** CI uses a deterministic fake provider with the same database dimension and never downloads model weights.
+
+### D-008-003 — Chunk Markdown by headings with a 400-token target and 60-token overlap
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Normalize text, preserve heading paths, pack paragraph/sentence units, and apply token overlap using the selected embedding model tokenizer.
+- **Rationale:** Operational documents are structurally meaningful; heading context and bounded overlap preserve that structure without pretending to implement retrieval.
+- **Consequences:** Chunk schema and tokenizer identity are captured in every run manifest so future changes are explicit migrations, not silent drift.
+
+### D-008-004 — Give Python Alembic sole ownership of the `rag` schema
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** The ingestion package owns `rag.documents`, `rag.chunks`, `rag.ingestion_runs`, and the pgvector extension through Alembic. Spring Flyway remains responsible for incident-service tables only.
+- **Rationale:** Schema ownership follows the service boundary and avoids cross-language migration ordering conflicts.
+- **Consequences:** RAG migrations must run before ingestion; incident-service migrations remain unchanged.
+
+### D-008-005 — Pin a PostgreSQL 18 pgvector image and begin with exact scans
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Compose and CI use `pgvector/pgvector:0.8.6-pg18-bookworm` pinned by OCI index digest. Phase 8 creates no HNSW or IVFFlat index.
+- **Rationale:** The image keeps the existing PostgreSQL major version while supplying a verified vector extension. The Phase 8 corpus is too small to justify approximate indexing.
+- **Consequences:** Vector storage and distance operators are available now; ANN index selection is deferred until measured retrieval workloads exist.
+
+### D-008-006 — Derive stable identities from normalized source content
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Document IDs derive from normalized repository-relative paths; checksums cover canonical metadata and normalized content; chunk IDs cover document identity, checksum, heading, position, content, and chunk schema.
+- **Rationale:** Platform line endings and repeated runs must not cause duplicate knowledge records or opaque identity changes.
+- **Consequences:** Meaningful content or metadata edits replace a document's chunks atomically while its document identity remains stable.
+
+### D-008-007 — Replace changed document chunks atomically and retain missing sources as inactive
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Each ingestion commits changed-document metadata and chunk replacement in one transaction. Sources absent from a later complete corpus scan are marked inactive rather than deleted.
+- **Rationale:** Readers must never observe a partially refreshed document, and source removal needs an auditable history.
+- **Consequences:** Unchanged documents are skipped; restored sources can reactivate the same stable document identity.
+
+### D-008-008 — Isolate ingestion dependencies and test providers
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** `rag/ingestion` is its own installable project. Core database and parsing dependencies are pinned, real embeddings are optional, and tests inject a deterministic provider.
+- **Rationale:** The health-only RAG service must not inherit ingestion or model dependencies, while CI must remain deterministic and network independent.
+- **Consequences:** Local real-model validation installs the embeddings extra explicitly; service dependency files remain untouched.
+
+### D-008-009 — Start with a small, metadata-controlled operational corpus
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Phase 8 ships 15 concise Markdown documents spanning runbooks, synthetic postmortems, troubleshooting guides, architecture, and procedure material with controlled service and incident-type metadata.
+- **Rationale:** A deliberately reviewable corpus supports quality checks and future retrieval evaluation better than bulk or scraped content.
+- **Consequences:** Synthetic status is explicit in front matter and model binaries, caches, and generated run outputs remain untracked.
+
+### D-008-010 — Keep the future generation path SLM-first
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Future grounded generation should first evaluate a locally runnable small language model. Any external LLM is an optional, explicitly configured comparison path rather than the architectural default.
+- **Rationale:** An SLM-first path keeps the portfolio reproducible, cost-controlled, and privacy-aware on the documented laptop-class target while leaving room for measured comparison later.
+- **Consequences:** Phase 8 adds no inference runtime, model weights, prompt orchestration, or generation API. Model selection and quality evaluation belong to a later separately scoped phase.

@@ -1,8 +1,10 @@
 # Incident Database
 
-Phase 3 uses PostgreSQL 18.4 for the incident service. Flyway is the only schema
-owner; Hibernate runs with `ddl-auto=validate` and fails startup if the mappings
-do not match the migrated schema.
+The incident service now runs on the Compose PostgreSQL 18.6 pgvector image.
+Flyway remains the sole owner of the incident-service tables; Phase 8 Python
+Alembic separately owns only the `rag` schema. Hibernate runs with
+`ddl-auto=validate` and fails startup if the incident mappings do not match the
+migrated schema.
 
 ## Relational model
 

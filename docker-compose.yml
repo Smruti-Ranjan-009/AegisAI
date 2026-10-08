@@ -2,7 +2,7 @@ name: aegisai
 
 services:
   postgres:
-    image: postgres:18.4-alpine
+    image: pgvector/pgvector:0.8.6-pg18-bookworm@sha256:2ba9ca5f2e7daa0f0e7723cba1ee9167bab54efd3640516a44ac1a928dd67e7a
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-aegisai}
       POSTGRES_USER: ${POSTGRES_USER:-aegis}

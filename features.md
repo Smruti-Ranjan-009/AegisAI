@@ -455,3 +455,49 @@ Statuses: `PLANNED`, `IN PROGRESS`, `DONE`, `BLOCKED`, `DEFERRED`.
 - Imports: anomaly 3.580 seconds; classifier 3.287 seconds; repeated imports reused versions. Champion lookup was 0.037–0.038 seconds and full verification approximately 2.380 seconds per model.
 - Storage: SQLite 1,036,288 bytes; MLflow artifacts 1,698,581 bytes; logged anomaly/classifier models 531,178 / 422,529 bytes. The store retains the truthful failed pre-registration classifier run from B-007-001.
 - Full regressions: Phase 7 lifecycle 26 tests; Phase 6 classifier 21; Phase 5 anomaly 23; Phase 4 features 29; Phase 1 lab 17; telemetry/ML/RAG 17/1/1; Java 37; Kafka integration 2. All passed; Ruff clean; all six images built; full Compose health passed and validation containers/network were removed.
+
+## Phase 8 — RAG ingestion and vector knowledge base
+
+### F-008-001 — Curated operational knowledge corpus
+
+- **Status:** DONE
+- Add a controlled, reviewable Markdown corpus with explicit document type, service, incident type, version, and synthetic-source metadata.
+
+### F-008-002 — Deterministic heading-aware ingestion
+
+- **Status:** DONE
+- Add normalized parsing, stable document/checksum/chunk identities, model-tokenizer chunking, quality reports, and reproducible run manifests.
+
+### F-008-003 — Isolated embedding provider boundary
+
+- **Status:** DONE
+- Add normalized 384-dimensional local BGE embeddings for real runs and a deterministic injected fake provider for fast offline tests and CI.
+
+### F-008-004 — PostgreSQL pgvector knowledge schema
+
+- **Status:** DONE
+- Add Python-owned Alembic migrations, atomic idempotent persistence, inactive-source handling, status/validation commands, and exact vector smoke validation.
+
+## Phase 8 bugs and failed attempts
+
+| ID | Status | Finding | Resolution |
+|---|---|---|---|
+| B-008-001 | FIXED | The first package-version query could not reach the package index from the restricted sandbox. | Repeated the read-only version query with approved network access, then selected explicit compatible dependency pins without changing the environment. |
+| B-008-002 | FIXED | The shell-default Python was 3.13, so the package correctly rejected installation outside its required Python 3.12 range. | Kept the Phase 8 runtime constraint and installed and validated through the existing Python 3.12 `aegis` Conda environment. |
+| B-008-003 | FIXED | The first sandboxed pytest run could not access pytest's user-profile temporary directory; nine fixture setups errored while nine tests passed. | Directed pytest's base temporary directory to the repository's ignored `.runtime` tree and retained the tests unchanged. |
+| B-008-004 | FIXED | The first real-model command ran inside the restricted network sandbox and Hugging Face could not check one optional normalization config, even though the pinned model was cached and ingestion completed. | Repeated validation with approved model-network access, kept the cache under ignored `.runtime/rag`, and pinned the resolved model commit in configuration and manifests. |
+| B-008-005 | FIXED | The first quality report counted five identical synthetic-postmortem disclaimer chunks and treated only newly embedded chunks as the corpus chunk total. | Made each synthetic disclaimer scenario-specific and separated full-corpus chunk statistics from per-run embedded-chunk statistics. |
+| B-008-006 | FIXED | The first unchanged telemetry regression inherited the same inaccessible user-profile pytest temporary root seen during Phase 8 tests; 15 tests passed and two fixture setups errored. | Re-ran the unchanged suite with its base temporary directory under ignored `.runtime`; all 17 tests passed. |
+| B-008-007 | FIXED | Sandboxed Maven first resolved its home to `C:\.m2`; redirecting it into `.runtime` then required a wrapper download blocked by sandbox networking. | Re-ran the unchanged wrapper with approved access to the existing user Maven cache and Docker; all 37 Java tests passed. |
+| B-008-008 | FIXED | The first dependency-version reporting probe assumed the `pgvector` package exported `__version__`, so it stopped after printing two versions. | Used standard package metadata for every dependency and captured the complete installed version set without changing code or packages. |
+| B-008-009 | FIXED | Final requirements review found the draft run manifest lacked completion/schema/timing fields and the draft quality report lacked p95, empty-chunk, and dimension-mismatch metrics. | Extended both persisted and file manifests, added measured pipeline timings and schema versions, completed the quality contract and serious-error gate, and covered the fields in PostgreSQL integration tests. |
+
+## Phase 8 measured verification
+
+- Corpus: 15 documents (5 runbooks, 5 postmortems, 3 troubleshooting guides, 1 architecture note, 1 procedure); 13 explicitly synthetic documents; all five target incident types plus `general` represented.
+- Real embedding model: `BAAI/bge-small-en-v1.5` at revision `5c38ec7c405ec4b44b94cc5a9bb96e735b38267a`; local CPU; 384 dimensions; normalized vectors; 65 stored chunks; 2,354 model tokens; 15–64 tokens per heading-aware chunk (p50 37, p95 51.6); zero empty/duplicate chunk bodies, dimension mismatches, or non-finite embeddings.
+- Fresh real ingestion: parse/chunk 0.038282 seconds; embedding 0.849749 seconds (76.493 chunks/second); database work 0.719566 seconds; overall ingestion 1.611222 seconds, excluding model construction performed before the pipeline timer.
+- Idempotency: final repeat run discovered 15, skipped/unchanged 15, inserted/updated/deactivated 0, and wrote 0 chunks in 0.105155 seconds. Exact smoke query for database connection exhaustion ranked that synthetic postmortem's root-cause chunk first.
+- Storage: PostgreSQL 18.6; pgvector 0.8.6; Alembic revision `0001_rag_vector_schema`; 15 active documents, 0 inactive documents, 65 `vector(384)` chunks. The existing incident row survived the same-major image change.
+- Phase 8 tests: 24/24 passed against the isolated `aegis_rag_test` database, including hidden/runtime/raw/binary discovery exclusions; Ruff passed. CI YAML parsed, Compose configuration resolved, and no invalid `${{ runner.temp }}` expressions remain.
+- Full regressions: Java 37; telemetry service 17; ML/RAG health services 1/1; Phase 1 lab 17; Phase 4 features 29; Phase 5 anomaly 23; Phase 6 classifier 21; Phase 7 lifecycle 26; Kafka integration 2. All passed; combined Ruff clean; all six service/worker images built; full Compose health passed and validation containers/network were removed without deleting named volumes.

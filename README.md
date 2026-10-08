@@ -2,15 +2,15 @@
 
 AI-powered incident intelligence platform combining ML-based anomaly detection, hybrid RAG, and event-driven microservices to diagnose distributed-system failures and generate grounded remediation recommendations.
 
-> **Current status: Phase 7 — MLflow Model Lifecycle**
+> **Current status: Phase 8 — RAG Ingestion and Vector Knowledge Base**
 
 ## Overview
 
-AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 7 preserves the frozen anomaly detector and incident classifier, then adds local MLflow experiment tracking, lineage, registry versions, candidate/champion promotion, rollback support, and audit history.
+AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 8 adds a curated operational corpus, deterministic model-tokenizer chunking, local BGE embeddings, and a Python-owned pgvector knowledge schema. It stops before retrieval or generation.
 
 ## Problem Statement
 
-Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 7 governs the existing offline models; it does not retrain or serve them or connect predictions to incident creation.
+Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 8 makes the source knowledge reproducible and auditable; it does not yet retrieve from it or generate answers.
 
 ## Long-Term Architecture
 
@@ -21,12 +21,12 @@ The planned system consists of a React dashboard, a Spring Boot incident API, th
 | Area | Implemented | Planned later |
 | --- | --- | --- |
 | Incident API | Java 17, Spring Boot 3.4, REST, Validation, Spring Data JPA, Flyway | Kafka integration, authentication, RBAC |
-| Python services | Python 3.12, FastAPI, Pydantic, Uvicorn; telemetry worker uses `confluent-kafka` and JSON Schema | ML and RAG-specific libraries |
+| Python services | Python 3.12 FastAPI shells and telemetry worker; isolated ingestion package | RAG serving dependencies |
 | Dataset and ML | OpenTelemetry Demo 3.1.0 captures; protobuf OTLP normalization; PyArrow Parquet; deterministic UTC windows; frozen anomaly detection and incident classification; MLflow 3.17 tracking and alias-based registry lifecycle | Model serving and drift monitoring |
 | Event backbone | Apache Kafka 4.3.1 in single-node KRaft mode; raw, processed, and DLQ topics | Multi-node or managed production Kafka |
 | Testing and quality | JUnit, Spring Boot Test, Testcontainers PostgreSQL, pytest, Ruff, Kafka integration tests | Broader end-to-end suites |
 | Containers | Docker, Docker Compose | Production orchestration and cloud delivery |
-| Data and messaging | PostgreSQL 18.4 with persistent local volume; Kafka with a persistent local volume | pgvector, Redis |
+| Data and messaging | PostgreSQL 18.6 with pgvector 0.8.6; persistent PostgreSQL and Kafka volumes | Redis |
 | Observability | OpenTelemetry Demo is a telemetry source only | AegisAI OpenTelemetry, Prometheus, Grafana pipelines |
 | Frontend | Directory placeholder only | React dashboard |
 
@@ -37,7 +37,7 @@ services/       Independently buildable backend services
 frontend/       Future React application
 shared/         Versioned event contracts and future shared schemas
 ml/             Installable feature-engineering, anomaly, and classification packages
-rag/            Future RAG pipelines and evaluation
+rag/            Phase 8 knowledge ingestion plus future retrieval/evaluation
 infrastructure/ Docker foundations and the isolated telemetry lab
 data/           Raw capture location and future curated samples
 tests/          Cross-service and Kafka integration tests
@@ -49,7 +49,7 @@ Each Python service owns its dependencies; there is intentionally no root `requi
 
 ## Current Implementation Status
 
-Phase 7 includes all Phase 0–6 capabilities plus an isolated `ml/model_lifecycle` package. It imports the immutable Phase 5 and Phase 6 artifacts retrospectively, records their exact metrics and lineage in a repo-local SQLite MLflow store, registers one truthful version of each model, and manages `candidate` / `champion` aliases through deterministic integrity and reproducibility gates.
+Phase 8 includes all Phase 0–7 capabilities plus an isolated `rag/ingestion` package and 15-document controlled corpus. It validates front matter, creates stable source and chunk identities, chunks with the real embedding-model tokenizer, stores normalized 384-dimensional vectors in PostgreSQL, and records reproducible ingestion runs. Python Alembic owns only the `rag` schema; Spring Flyway remains unchanged.
 
 The implemented offline path is: telemetry → anomaly detection → abnormal
 context aggregation → five-class incident prediction → MLflow tracking → model
@@ -59,7 +59,7 @@ measured results, and limitations are in
 [docs/incident-classification.md](docs/incident-classification.md); Phase 7 is in
 [docs/model-lifecycle.md](docs/model-lifecycle.md).
 
-Phase 7 does **not** include model retraining, model serving, automated Kafka-to-incident creation, RAG, LLM investigation, Redis, pgvector, AWS deployment, production observability, authentication, RBAC, or a frontend. The production `ml-service` remains health-only.
+Phase 8 does **not** include retrieval, hybrid search, ranking, RAG question answering, an SLM or LLM, model serving, automated Kafka-to-incident creation, Redis, AWS deployment, production observability, authentication, RBAC, or a frontend. The production `rag-service` and `ml-service` remain health-only.
 
 The implementation journals are [decisions.md](decisions.md), [flow.md](flow.md), and [features.md](features.md). Future phases should read these before changing established behavior.
 
@@ -198,6 +198,27 @@ Docker Compose. See [docs/model-lifecycle.md](docs/model-lifecycle.md) and the
 permanent [decisions](decisions.md), [flows](flow.md), and
 [feature/bug journal](features.md).
 
+## Knowledge Ingestion
+
+Install the isolated Phase 8 package. The `embeddings` extra is needed only for
+real local BGE validation and ingestion:
+
+```powershell
+conda activate aegis
+python -m pip install -e ".\rag\ingestion[test,embeddings]"
+docker compose up -d --wait postgres
+python -m aegis_rag_ingestion inspect --json
+python -m aegis_rag_ingestion migrate --json
+python -m aegis_rag_ingestion embed-validate --json
+python -m aegis_rag_ingestion ingest --json
+python -m aegis_rag_ingestion validate --smoke-query "high CPU saturation" --json
+```
+
+Run `ingest` a second time to verify idempotency. Generated manifests, reports,
+and model caches belong under ignored `.runtime/`. See
+[docs/rag-ingestion.md](docs/rag-ingestion.md) for metadata, schema, failure,
+volume, and test details.
+
 ## Kafka Telemetry Pipeline
 
 Install the telemetry-service dependencies, then start Kafka, deterministic
@@ -311,6 +332,10 @@ python -m pip install -e "ml\model_lifecycle[test]"
 python -m pytest ml\model_lifecycle\tests
 python -m ruff check ml\model_lifecycle
 
+python -m pip install -e ".\rag\ingestion[test]"
+python -m pytest rag\ingestion\tests -q --basetemp=.runtime\pytest-phase8
+python -m ruff check rag\ingestion
+
 $env:KAFKA_INTEGRATION = "1"
 python -m pytest tests\integration -m kafka_integration
 ```
@@ -330,9 +355,9 @@ docker compose ps
 docker compose down
 ```
 
-Compose starts PostgreSQL, the four backend APIs, Kafka, one-shot topic provisioning,
-and the separate telemetry worker. It does not start Redis, pgvector, Prometheus,
-Grafana, the OpenTelemetry Demo, or a frontend container.
+Compose starts PostgreSQL with pgvector, the four backend APIs, Kafka, one-shot
+topic provisioning, and the separate telemetry worker. It does not start Redis,
+Prometheus, Grafana, the OpenTelemetry Demo, a model server, or a frontend container.
 
 Normal shutdown preserves both named data volumes:
 
@@ -379,8 +404,9 @@ Invoke-RestMethod http://localhost:8003/health
 5. Phase 4: ML feature engineering (complete)
 6. Phase 5: anomaly detection (complete)
 7. Phase 6: incident classification (complete)
-8. Phase 7: MLflow experiment tracking and model lifecycle (current)
-9. Phase 8 and later: RAG, model serving, frontend, production observability, CI/CD, and AWS delivery
+8. Phase 7: MLflow experiment tracking and model lifecycle (complete)
+9. Phase 8: RAG ingestion and vector knowledge base (current)
+10. Phase 9 and later: retrieval, grounded generation, model serving, frontend, production observability, CI/CD, and AWS delivery
 
 Each later capability will be introduced as a separate scoped phase.
 
@@ -396,5 +422,5 @@ Each later capability will be introduced as a separate scoped phase.
 ## Future Deployment Strategy
 
 The planned portfolio deployment path is GitHub Actions to AWS IAM OIDC,
-Amazon ECR, an EC2 host, and Docker Compose. Phase 7 contains no AWS resources,
+Amazon ECR, an EC2 host, and Docker Compose. Phase 8 contains no AWS resources,
 deployment workflows, credentials, or production infrastructure.

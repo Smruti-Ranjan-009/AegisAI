@@ -51,6 +51,8 @@ logs/
 *.onnx
 *.pt
 *.pth
+*.safetensors
+*.bin
 /artifacts/anomaly_detection/**
 /artifacts/incident_classification/**
 

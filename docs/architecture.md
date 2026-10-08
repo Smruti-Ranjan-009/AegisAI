@@ -1,6 +1,6 @@
 # Planned Architecture
 
-Phase 7 preserves the operational service, incident, Kafka, feature, anomaly, and classification paths, then adds local MLflow tracking and alias-based model lifecycle management around the two frozen models. Automated telemetry-to-incident integration, model serving, RAG, production observability, frontend, and cloud capabilities remain future design goals.
+Phase 8 preserves the operational service, incident, Kafka, feature, anomaly, classification, and model-lifecycle paths, then adds a deterministic knowledge-ingestion boundary and pgvector storage. Retrieval, ranking, grounded generation, model serving, production observability, frontend, and cloud capabilities remain future design goals.
 
 ## Phase 3 Incident Management Path
 
@@ -16,7 +16,7 @@ Spring Boot Incident API
         +--> transactional incident + timeline writes
         |
         v
-PostgreSQL 18.4
+PostgreSQL 18.6 + pgvector 0.8.6
   +-- incidents
   +-- incident_affected_services
   +-- incident_timeline_entries
@@ -169,6 +169,32 @@ Registry aliases are promoted only after deterministic integrity, schema,
 lineage, reload, and smoke-inference gates. The local store is single-user and
 Git-ignored; no runtime service or root Compose container depends on MLflow.
 
+## Phase 8 Knowledge Ingestion Path
+
+```text
+Controlled Markdown corpus
+        |
+        v
+metadata validation + normalized parsing
+        |
+        v
+heading-aware 400/60 model-tokenizer chunks
+        |
+        v
+BAAI/bge-small-en-v1.5 (local CPU, normalized vector(384))
+        |
+        v
+PostgreSQL rag schema
+  +-- documents
+  +-- chunks
+  +-- ingestion_runs
+```
+
+The isolated `rag/ingestion` package and its Alembic history own this path.
+Changed documents replace their chunks atomically, unchanged checksums are
+skipped, and absent sources become inactive. The FastAPI RAG service remains
+health-only. No retrieval or generation path is implemented.
+
 ## Phase 2 Streaming Path
 
 ```text
@@ -228,7 +254,7 @@ not perform feature engineering, inference, or incident creation.
                    Grafana
 ```
 
-The diagram describes intended long-term logical relationships, not fully deployed Phase 7 infrastructure.
+The diagram describes intended long-term logical relationships, not fully deployed Phase 8 infrastructure.
 
 ## Service Responsibilities
 
@@ -257,9 +283,14 @@ and ignored classifier artifacts. Phase 7's isolated `ml/model_lifecycle`
 workspace owns local MLflow tracking, registry aliases, integrity verification,
 promotion, rollback, and audit. Serving and online parity remain future work.
 
-### RAG Service
+### RAG Service and offline ingestion workspace
 
-The future knowledge service for runbooks, postmortems, incident history, architecture documents, hybrid retrieval, reranking, and grounded LLM generation. In Phase 0 it exposes only a health endpoint and has no retrieval or LLM dependencies.
+The production RAG service remains a health-only shell with no model, retrieval,
+or LLM dependency. Phase 8's separate `rag/ingestion` workspace owns the curated
+runbook/postmortem corpus, validated metadata, deterministic chunks, local BGE
+embeddings, ingestion manifests, and the PostgreSQL `rag` schema. Future phases
+may add hybrid retrieval, reranking, and grounded SLM-first generation without
+moving ingestion concerns into the API shell.
 
 ## Future Design Constraints
 
@@ -269,9 +300,10 @@ Phase 2 implements `telemetry.raw`, `telemetry.processed`, and `telemetry.dlq` w
 
 ### Storage
 
-PostgreSQL now provides relational incident persistence using normalized tables,
-constraints, indexes, Flyway migrations, and a named Compose volume. pgvector and
-Redis remain future capabilities. The telemetry demo's separate PostgreSQL and
+PostgreSQL now provides relational incident persistence using Flyway-owned tables
+and Phase 8 vector knowledge persistence using an Alembic-owned `rag` schema.
+Compose uses a pinned PostgreSQL 18 pgvector image and the existing named volume.
+Redis remains a future capability. The telemetry demo's separate PostgreSQL and
 Valkey containers are isolated workload internals and are not AegisAI persistence.
 
 ### Incident lifecycle
@@ -309,7 +341,10 @@ those frozen outputs. Later phases may add serving and drift monitoring.
 
 ### Retrieval-augmented generation
 
-Later phases will evaluate BM25, dense retrieval, reciprocal rank fusion, reranking, citations, grounded generation, and RAG quality. No vector database, embedding model, LLM SDK, or prompt orchestration is included now.
+Phase 8 implements only controlled source ingestion, local dense embeddings, and
+pgvector storage. Later phases will evaluate BM25, dense retrieval, reciprocal
+rank fusion, reranking, citations, grounded SLM-first generation, and RAG quality.
+No retrieval API, LLM SDK, or prompt orchestration is included now.
 
 ### Observability
 
@@ -335,4 +370,4 @@ EC2
 Docker Compose
 ```
 
-AWS resources, deployment automation, and credentials are outside Phase 7.
+AWS resources, deployment automation, and credentials are outside Phase 8.

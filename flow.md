@@ -2,6 +2,68 @@
 
 This journal tracks implemented request, data, and failure paths. Future phases must read it before extending cross-service behavior.
 
+## Phase 9 — Offline hybrid retrieval
+
+### Before implementation
+
+Phase 8 stores one active, normalized 384-dimensional chunk corpus and exposes
+only an exact vector smoke check. There is no reusable dense retriever, lexical
+index, filter contract, rank fusion, retrieval benchmark, or search CLI.
+
+### Current modification
+
+Add an isolated offline `rag/retrieval` package. It will load and fingerprint
+the active Phase 8 database snapshot, build deterministic BM25 state in memory,
+execute exact BGE/pgvector cosine queries, apply one validated filter contract
+to both branches, fuse ranks with fixed RRF, and evaluate a frozen benchmark.
+The FastAPI RAG service and Compose topology remain unchanged.
+
+### After implementation
+
+```text
+python -m aegis_rag_retrieval search <query> --method <bm25|dense|hybrid>
+  -> RetrievalConfig.from_environment()
+  -> Phase 8 database connection + embedding-provider boundary
+  -> RetrievalRepository.load_active_snapshot()
+  -> deterministic document/checksum/chunk fingerprint
+  -> BM25Index(title + heading path + content)
+  -> optional validated service / incident / document filters
+  -> selected branch:
+       bm25  -> in-memory Okapi scores
+       dense -> BGE query instruction -> exact pgvector cosine SQL
+       hybrid -> both branches -> fixed reciprocal rank fusion
+  -> compact ranked metadata; content only when explicitly requested
+```
+
+```text
+development benchmark
+  -> validate 50 query records + 100 section qrels
+  -> resolve qrels against the active snapshot
+  -> warm model/query path outside measurements
+  -> evaluate BM25, dense, and hybrid from one branch execution per query
+  -> metrics, family/style breakdowns, complementarity, component latency
+  -> freeze query/qrel/config/corpus hashes
+
+one confirmed final benchmark
+  -> require exact frozen-manifest match
+  -> refuse overwrite when a final report already exists
+  -> write ignored JSON + Markdown reports
+```
+
+Failure paths reject blank queries, invalid top-k/method/configuration,
+uncontrolled filter values, embedding contract drift, unresolved qrels,
+unbalanced or filter-bearing primary benchmark records, a changed active corpus,
+an unfrozen final run, or an attempted repeated final evaluation. Psycopg binds
+all filter values as parameters.
+
+### Explicitly unchanged in Phase 9
+
+- `services/rag-service` remains a health-only FastAPI shell.
+- No reranker, cross-encoder, SLM, LLM, generation, citations, or prompt path is
+  introduced.
+- No Kafka topic, incident automation, Compose service, schema migration,
+  authentication, Redis, observability pipeline, or AWS resource is added.
+
 ## Phase 3
 
 ### Before implementation

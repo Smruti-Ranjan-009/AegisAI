@@ -13,6 +13,12 @@ Every Markdown file begins with validated YAML metadata: `title`, controlled
 `document_type`, integer `version`, controlled `services` and `incident_types`
 lists, and boolean `synthetic`.
 
+Phase 9 audited every source against the authoritative telemetry fault catalog
+and extended the controlled service vocabulary with `ad`, `email`, `payment`,
+`checkout`, `frontend`, and `image-provider`. Only the five corresponding
+runbook metadata blocks changed; the Phase 8 parsing and checksum contracts did
+not change.
+
 Paths are repository-relative and normalized to POSIX separators. Document IDs
 are SHA-256 hashes of those stable paths. Checksums cover canonical metadata and
 LF-normalized content, so CRLF conversion does not create a false update.

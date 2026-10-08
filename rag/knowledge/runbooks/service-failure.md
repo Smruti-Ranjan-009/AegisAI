@@ -2,7 +2,7 @@
 title: Service Failure Response
 document_type: runbook
 version: 1
-services: [incident-service, ml-service, rag-service, telemetry-service]
+services: [incident-service, ml-service, rag-service, telemetry-service, payment]
 incident_types: [service_failure]
 synthetic: true
 ---

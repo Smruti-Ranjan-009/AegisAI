@@ -1,0 +1,6 @@
+{"case_id":"filter-service-ad","query":"high CPU saturation","filters":{"services":["ad"]},"expected_source_path":"runbooks/cpu-saturation.md"}
+{"case_id":"filter-service-email","query":"memory growth after collection","filters":{"services":["email"]},"expected_source_path":"runbooks/memory-leak.md"}
+{"case_id":"filter-service-payment","query":"failed charge requests","filters":{"services":["payment"],"incident_types":["service_failure"]},"expected_source_path":"runbooks/service-failure.md"}
+{"case_id":"filter-checkout-dependency","query":"unreachable downstream","filters":{"services":["checkout"],"incident_types":["dependency_failure"]},"expected_source_path":"runbooks/dependency-failure.md"}
+{"case_id":"filter-image-latency","query":"slow image responses","filters":{"services":["image-provider"],"document_types":["runbook"]},"expected_source_path":"runbooks/high-latency.md"}
+{"case_id":"filter-postmortem","query":"connection leak retry pressure","filters":{"document_types":["postmortem"],"incident_types":["dependency_failure"]},"expected_source_path":"postmortems/database-connections.md"}

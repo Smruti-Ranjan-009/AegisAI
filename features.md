@@ -2,6 +2,46 @@
 
 Statuses: `PLANNED`, `IN PROGRESS`, `DONE`, `BLOCKED`, `DEFERRED`.
 
+## Phase 9 — Hybrid retrieval
+
+| ID | Status | Feature | Verification target |
+|---|---|---|---|
+| F-009-001 | DONE | Audited corpus service metadata and reproducible active-snapshot fingerprint | All 15 sources reviewed; five corrected documents re-ingested; 20 chunks replaced and fingerprint recorded |
+| F-009-002 | DONE | Deterministic BM25 and exact pgvector dense retrieval with shared filters | Unit and real PostgreSQL integration tests pass |
+| F-009-003 | DONE | Fixed equal-weight RRF hybrid retrieval and offline search CLI | Exact rank/score/tie tests, filtered cases, and real CLI search pass |
+| F-009-004 | DONE | Versioned 50-query benchmark, manually curated qrels, frozen split, metrics, and latency reports | Development inputs frozen; one untouched final evaluation completed |
+| F-009-005 | DONE | Phase 9 documentation, CI, and regression validation | Retrieval CI job, Ruff, regressions, YAML, Compose config, and Git hygiene pass |
+
+## Phase 9 bugs and failed attempts
+
+| ID | Status | Finding | Resolution |
+|---|---|---|---|
+| B-009-001 | FIXED | The first editable-install attempt could not reach pinned build dependencies through the managed sandbox. | Re-ran the unchanged per-package install with approved network access; `rank-bm25` 0.2.2 and both local RAG packages installed. |
+| B-009-002 | FIXED | A two-document BM25 unit fixture gave all matching terms non-positive corpus IDF, so zero-score nonmatches legitimately sorted first. | Expanded the synthetic fixture to represent a minimally meaningful corpus; production BM25 parameters and behavior were not changed. |
+| B-009-003 | FIXED | The first development freeze manifest included measured BM25 build time and host environment, which would make the final preflight equality check nondeterministic. | Kept only hashes, counts, and retrieval contracts in the freeze; moved timing/environment facts to per-run reports and regenerated development output before the single final run. |
+
+## Phase 9 measured verification
+
+- Corpus audit: 15/15 documents reviewed; service vocabulary extended with six
+  authoritative OpenTelemetry Demo identities; only five matching runbooks
+  changed. Real ingestion updated five documents and replaced 20 of 65 chunks.
+- Snapshot: 15 active documents, 65 chunks, fingerprint
+  `f5a7d43a5ca429013ef4117b52a36ca68e4e4b4f4e1d16a6d13e89867f59443b`.
+- Benchmark: `retrieval-v1-d0069399f493`; 50 primary queries, 100 manually
+  curated qrels, 30/20 frozen split, and zero primary queries with filters.
+- Development NDCG@10: BM25 0.711, dense 0.751, hybrid 0.815.
+- One-time final NDCG@10: BM25 0.670, dense 0.732, hybrid 0.733. Final hybrid
+  Recall@5/MRR@10/Hit@10 were 0.750/0.785/1.000.
+- Secondary filters: six cases, 1.000 hit rate. Real hybrid CLI search ranked
+  database-connection corrective actions first for connection-pool pressure.
+- Phase 9 retrieval: 21 tests passed against PostgreSQL/pgvector; Phase 8
+  ingestion 24; Phase 7 lifecycle 26; Phase 6 classifier 21; Phase 5 anomaly
+  23; Phase 4 features 29; Phase 1 lab 17; telemetry/ML/RAG services 17/1/1;
+  Java 37; Kafka integration 2. All passed. Ruff was clean across every Python
+  scope; all six existing images built; full Compose health passed and all
+  validation containers/network were removed while named volumes were retained.
+
+
 ## Phase 3 Features
 
 | ID | Status | Feature | Verification target |

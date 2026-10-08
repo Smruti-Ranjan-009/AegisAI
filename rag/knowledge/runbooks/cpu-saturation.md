@@ -2,7 +2,7 @@
 title: CPU Saturation Response
 document_type: runbook
 version: 1
-services: [platform, telemetry-service]
+services: [platform, telemetry-service, ad]
 incident_types: [cpu_saturation]
 synthetic: true
 ---

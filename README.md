@@ -2,15 +2,15 @@
 
 AI-powered incident intelligence platform combining ML-based anomaly detection, hybrid RAG, and event-driven microservices to diagnose distributed-system failures and generate grounded remediation recommendations.
 
-> **Current status: Phase 8 — RAG Ingestion and Vector Knowledge Base**
+> **Current status: Phase 9 — Hybrid Retrieval**
 
 ## Overview
 
-AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 8 adds a curated operational corpus, deterministic model-tokenizer chunking, local BGE embeddings, and a Python-owned pgvector knowledge schema. It stops before retrieval or generation.
+AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 9 adds deterministic BM25, exact dense retrieval, reciprocal-rank fusion, metadata filters, and a frozen retrieval benchmark over the Phase 8 corpus. It stops before reranking or generation.
 
 ## Problem Statement
 
-Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 8 makes the source knowledge reproducible and auditable; it does not yet retrieve from it or generate answers.
+Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 9 measures which stored sections can be recovered from realistic operational questions; it does not generate answers.
 
 ## Long-Term Architecture
 
@@ -37,7 +37,7 @@ services/       Independently buildable backend services
 frontend/       Future React application
 shared/         Versioned event contracts and future shared schemas
 ml/             Installable feature-engineering, anomaly, and classification packages
-rag/            Phase 8 knowledge ingestion plus future retrieval/evaluation
+rag/            Knowledge ingestion, Phase 9 retrieval, and evaluation assets
 infrastructure/ Docker foundations and the isolated telemetry lab
 data/           Raw capture location and future curated samples
 tests/          Cross-service and Kafka integration tests
@@ -49,7 +49,13 @@ Each Python service owns its dependencies; there is intentionally no root `requi
 
 ## Current Implementation Status
 
-Phase 8 includes all Phase 0–7 capabilities plus an isolated `rag/ingestion` package and 15-document controlled corpus. It validates front matter, creates stable source and chunk identities, chunks with the real embedding-model tokenizer, stores normalized 384-dimensional vectors in PostgreSQL, and records reproducible ingestion runs. Python Alembic owns only the `rag` schema; Spring Flyway remains unchanged.
+Phase 9 includes all Phase 0–8 capabilities plus an isolated `rag/retrieval`
+package. It searches one fingerprinted active corpus snapshot with BM25 and exact
+BGE/pgvector cosine retrieval, applies identical controlled filters, and combines
+20 candidates per branch with fixed equal-weight RRF. A versioned 50-query,
+100-qrel benchmark reports retrieval quality, breakdowns, complementarity, and
+warmed CPU latency. Python Alembic continues to own only the `rag` schema;
+Spring Flyway remains unchanged.
 
 The implemented offline path is: telemetry → anomaly detection → abnormal
 context aggregation → five-class incident prediction → MLflow tracking → model
@@ -59,7 +65,11 @@ measured results, and limitations are in
 [docs/incident-classification.md](docs/incident-classification.md); Phase 7 is in
 [docs/model-lifecycle.md](docs/model-lifecycle.md).
 
-Phase 8 does **not** include retrieval, hybrid search, ranking, RAG question answering, an SLM or LLM, model serving, automated Kafka-to-incident creation, Redis, AWS deployment, production observability, authentication, RBAC, or a frontend. The production `rag-service` and `ml-service` remain health-only.
+Phase 9 does **not** include reranking, a cross-encoder, RAG question answering,
+an SLM or LLM, prompt orchestration, model serving, automated Kafka-to-incident
+creation, Redis, AWS deployment, production observability, authentication,
+RBAC, or a frontend. The production `rag-service` and `ml-service` remain
+health-only.
 
 The implementation journals are [decisions.md](decisions.md), [flow.md](flow.md), and [features.md](features.md). Future phases should read these before changing established behavior.
 
@@ -219,6 +229,27 @@ and model caches belong under ignored `.runtime/`. See
 [docs/rag-ingestion.md](docs/rag-ingestion.md) for metadata, schema, failure,
 volume, and test details.
 
+## Hybrid Retrieval
+
+Install the ingestion package first because Phase 9 deliberately reuses its
+frozen embedding and database contracts, then install the retrieval package:
+
+```powershell
+conda activate aegis
+python -m pip install -e ".\rag\ingestion[embeddings]"
+python -m pip install -e ".\rag\retrieval[test]"
+docker compose up -d --wait postgres
+python -m aegis_rag_retrieval validate-benchmark --json
+python -m aegis_rag_retrieval search "PostgreSQL connection pool exhausted" --method hybrid --top-k 5 --json
+python -m aegis_rag_retrieval filter-evaluate --json
+python -m pytest rag\retrieval\tests -q --basetemp=.runtime\pytest-phase9
+python -m ruff check rag\retrieval
+```
+
+Generated benchmark reports remain under ignored `.runtime/rag/retrieval/`.
+See [docs/hybrid-retrieval.md](docs/hybrid-retrieval.md) for the retrieval
+contract, benchmark methodology, measured results, and limitations.
+
 ## Kafka Telemetry Pipeline
 
 Install the telemetry-service dependencies, then start Kafka, deterministic
@@ -336,6 +367,10 @@ python -m pip install -e ".\rag\ingestion[test]"
 python -m pytest rag\ingestion\tests -q --basetemp=.runtime\pytest-phase8
 python -m ruff check rag\ingestion
 
+python -m pip install -e ".\rag\retrieval[test]"
+python -m pytest rag\retrieval\tests -q --basetemp=.runtime\pytest-phase9
+python -m ruff check rag\retrieval
+
 $env:KAFKA_INTEGRATION = "1"
 python -m pytest tests\integration -m kafka_integration
 ```
@@ -405,8 +440,9 @@ Invoke-RestMethod http://localhost:8003/health
 6. Phase 5: anomaly detection (complete)
 7. Phase 6: incident classification (complete)
 8. Phase 7: MLflow experiment tracking and model lifecycle (complete)
-9. Phase 8: RAG ingestion and vector knowledge base (current)
-10. Phase 9 and later: retrieval, grounded generation, model serving, frontend, production observability, CI/CD, and AWS delivery
+9. Phase 8: RAG ingestion and vector knowledge base (complete)
+10. Phase 9: hybrid BM25 + dense + RRF retrieval (current)
+11. Phase 10 and later: reranking, grounded generation, model serving, frontend, production observability, CI/CD, and AWS delivery
 
 Each later capability will be introduced as a separate scoped phase.
 
@@ -422,5 +458,5 @@ Each later capability will be introduced as a separate scoped phase.
 ## Future Deployment Strategy
 
 The planned portfolio deployment path is GitHub Actions to AWS IAM OIDC,
-Amazon ECR, an EC2 host, and Docker Compose. Phase 8 contains no AWS resources,
+Amazon ECR, an EC2 host, and Docker Compose. Phase 9 contains no AWS resources,
 deployment workflows, credentials, or production infrastructure.

@@ -2,7 +2,7 @@
 title: Memory Growth and Leak Response
 document_type: runbook
 version: 1
-services: [platform, incident-service]
+services: [platform, incident-service, email]
 incident_types: [memory_leak]
 synthetic: true
 ---

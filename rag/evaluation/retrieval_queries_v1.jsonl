@@ -1,0 +1,50 @@
+{"query_id":"cpu-01","query":"The ad service is pegged at high CPU and requests are beginning to time out. What should I check first?","incident_type":"cpu_saturation","style":"symptom","split":"development"}
+{"query_id":"cpu-02","query":"A container stays near its CPU limit while queue depth and p95 latency climb.","incident_type":"cpu_saturation","style":"symptom","split":"development"}
+{"query_id":"cpu-03","query":"Which signals distinguish application demand from CPU throttling or garbage collection?","incident_type":"cpu_saturation","style":"signal","split":"development"}
+{"query_id":"cpu-04","query":"What telemetry should be compared when CPU saturation may be causing 5xx errors?","incident_type":"cpu_saturation","style":"signal","split":"test"}
+{"query_id":"cpu-05","query":"How can synchronized background work exhaust CPU across every replica?","incident_type":"cpu_saturation","style":"root_cause","split":"development"}
+{"query_id":"cpu-06","query":"Why did simultaneous maintenance jobs make API request queues rise?","incident_type":"cpu_saturation","style":"root_cause","split":"test"}
+{"query_id":"cpu-07","query":"How should responders mitigate sustained CPU saturation without destroying evidence?","incident_type":"cpu_saturation","style":"mitigation","split":"development"}
+{"query_id":"cpu-08","query":"Should we restart all replicas or pause batch work when CPU is exhausted?","incident_type":"cpu_saturation","style":"mitigation","split":"test"}
+{"query_id":"cpu-09","query":"Give an operational sequence for profiling hot threads and validating CPU recovery.","incident_type":"cpu_saturation","style":"operational_question","split":"development"}
+{"query_id":"cpu-10","query":"When is it safe to remove temporary capacity after a CPU incident?","incident_type":"cpu_saturation","style":"operational_question","split":"test"}
+{"query_id":"memory-01","query":"Email memory grows continuously under steady traffic and the pod is repeatedly OOM killed.","incident_type":"memory_leak","style":"symptom","split":"development"}
+{"query_id":"memory-02","query":"A service never returns to its previous heap baseline after collection cycles.","incident_type":"memory_leak","style":"symptom","split":"test"}
+{"query_id":"memory-03","query":"Which memory signals prove a leak rather than a temporary allocation spike?","incident_type":"memory_leak","style":"signal","split":"development"}
+{"query_id":"memory-04","query":"What should I monitor when resident memory slope and restart frequency keep rising?","incident_type":"memory_leak","style":"signal","split":"development"}
+{"query_id":"memory-05","query":"How can an unbounded cache retain high-cardinality request payloads?","incident_type":"memory_leak","style":"root_cause","split":"development"}
+{"query_id":"memory-06","query":"Why did changing cache expiration cause monotonic memory growth?","incident_type":"memory_leak","style":"root_cause","split":"test"}
+{"query_id":"memory-07","query":"What is the safest short-term containment for leaking replicas?","incident_type":"memory_leak","style":"mitigation","split":"development"}
+{"query_id":"memory-08","query":"Can a rolling restart mitigate an OOM loop, and what does it not fix?","incident_type":"memory_leak","style":"mitigation","split":"test"}
+{"query_id":"memory-09","query":"How do I preserve heap evidence while respecting data-handling policy?","incident_type":"memory_leak","style":"operational_question","split":"development"}
+{"query_id":"memory-10","query":"What recovery window is needed before closing a suspected memory leak?","incident_type":"memory_leak","style":"operational_question","split":"test"}
+{"query_id":"service-01","query":"Payment charge requests fail and the service has too few ready replicas.","incident_type":"service_failure","style":"symptom","split":"development"}
+{"query_id":"service-02","query":"A rollout replaced healthy capacity with instances that fail startup checks.","incident_type":"service_failure","style":"symptom","split":"test"}
+{"query_id":"service-03","query":"Which probes and error classes establish whether a service is unavailable or partially degraded?","incident_type":"service_failure","style":"signal","split":"development"}
+{"query_id":"service-04","query":"How can I distinguish a local startup failure from a shared dependency outage?","incident_type":"service_failure","style":"signal","split":"test"}
+{"query_id":"service-05","query":"Why can a renamed environment variable prevent every new replica from starting?","incident_type":"service_failure","style":"root_cause","split":"development"}
+{"query_id":"service-06","query":"What rollout-control gap allowed invalid configuration to remove ready capacity?","incident_type":"service_failure","style":"root_cause","split":"development"}
+{"query_id":"service-07","query":"How should traffic be restored after unhealthy replicas are removed?","incident_type":"service_failure","style":"mitigation","split":"development"}
+{"query_id":"service-08","query":"What is the safe response when a deployment causes deterministic service failures?","incident_type":"service_failure","style":"mitigation","split":"test"}
+{"query_id":"service-09","query":"What evidence must be preserved before replacing failed instances?","incident_type":"service_failure","style":"operational_question","split":"development"}
+{"query_id":"service-10","query":"How do I validate one healthy request path before gradually returning traffic?","incident_type":"service_failure","style":"operational_question","split":"test"}
+{"query_id":"dependency-01","query":"Checkout cannot reach payment and client retries are increasing database connection pressure.","incident_type":"dependency_failure","style":"symptom","split":"development"}
+{"query_id":"dependency-02","query":"Requests wait for a connection_pool slot and then fail even though the health endpoint is green.","incident_type":"dependency_failure","style":"symptom","split":"test"}
+{"query_id":"dependency-03","query":"Which measurements separate connection acquisition delay, lock wait, and query execution time?","incident_type":"dependency_failure","style":"signal","split":"development"}
+{"query_id":"dependency-04","query":"What client and server evidence confirms the failing dependency boundary?","incident_type":"dependency_failure","style":"signal","split":"test"}
+{"query_id":"dependency-05","query":"How can a leaked database connection combine with retries to exhaust the pool?","incident_type":"dependency_failure","style":"root_cause","split":"development"}
+{"query_id":"dependency-06","query":"Why does immediate retry amplification make a partial downstream outage worse?","incident_type":"dependency_failure","style":"root_cause","split":"test"}
+{"query_id":"dependency-07","query":"How should we contain retry pressure while a dependency is saturated?","incident_type":"dependency_failure","style":"mitigation","split":"development"}
+{"query_id":"dependency-08","query":"What safe failover and rollback steps restore a failed dependency?","incident_type":"dependency_failure","style":"mitigation","split":"development"}
+{"query_id":"dependency-09","query":"How do I verify queued work drains without causing another capacity spike?","incident_type":"dependency_failure","style":"operational_question","split":"development"}
+{"query_id":"dependency-10","query":"Why must total client pool capacity stay below the PostgreSQL connection bound?","incident_type":"dependency_failure","style":"operational_question","split":"test"}
+{"query_id":"latency-01","query":"Frontend p95 latency jumped while throughput fell and user traffic stayed flat.","incident_type":"high_latency","style":"symptom","split":"development"}
+{"query_id":"latency-02","query":"Image-provider responses take five seconds and tail latency is above the objective.","incident_type":"high_latency","style":"symptom","split":"test"}
+{"query_id":"latency-03","query":"Which signals separate server processing, queueing, and downstream wait time?","incident_type":"high_latency","style":"signal","split":"development"}
+{"query_id":"latency-04","query":"What traces and pool metrics should I inspect for a p95 latency regression?","incident_type":"high_latency","style":"signal","split":"test"}
+{"query_id":"latency-05","query":"How do synchronized retries and an overlong timeout create a tail-latency storm?","incident_type":"high_latency","style":"root_cause","split":"development"}
+{"query_id":"latency-06","query":"Why can duplicate attempts reduce successful throughput when incoming load is unchanged?","incident_type":"high_latency","style":"root_cause","split":"test"}
+{"query_id":"latency-07","query":"How should bounded backoff and admission controls mitigate a retry storm?","incident_type":"high_latency","style":"mitigation","split":"development"}
+{"query_id":"latency-08","query":"When should we roll back a release versus add capacity for high latency?","incident_type":"high_latency","style":"mitigation","split":"test"}
+{"query_id":"latency-09","query":"How do I segment latency by route, status, instance, region, and caller?","incident_type":"high_latency","style":"operational_question","split":"development"}
+{"query_id":"latency-10","query":"What must recover besides tail latency before a latency incident is closed?","incident_type":"high_latency","style":"operational_question","split":"development"}

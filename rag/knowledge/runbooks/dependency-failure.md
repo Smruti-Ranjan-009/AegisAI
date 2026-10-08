@@ -2,7 +2,7 @@
 title: Dependency Failure Response
 document_type: runbook
 version: 1
-services: [platform, postgresql, kafka]
+services: [platform, postgresql, kafka, checkout, payment]
 incident_types: [dependency_failure]
 synthetic: true
 ---

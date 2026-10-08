@@ -27,6 +27,12 @@ SERVICES = frozenset(
         "kafka",
         "platform",
         "general",
+        "ad",
+        "email",
+        "payment",
+        "checkout",
+        "frontend",
+        "image-provider",
     }
 )
 

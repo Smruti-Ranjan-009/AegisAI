@@ -2,6 +2,50 @@
 
 This journal records implementation decisions as they are made. Future phases must read it before changing established behavior.
 
+## Phase 9 decisions
+
+### D-009-001 — Retrieval operates on one active corpus snapshot
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** BM25 and dense retrieval use the same active `rag.documents`/`rag.chunks` snapshot. A deterministic fingerprint covers active document IDs, checksums, and chunk IDs; benchmark runs fail if that snapshot changes after index construction.
+- **Rationale:** Lexical and vector ranks are only comparable when they represent identical knowledge, and benchmark hashes must identify the evaluated corpus rather than merely the query files.
+
+### D-009-002 — Keep lexical and vector retrieval transparent
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Use BM25 Okapi with fixed `k1=1.5`, `b=0.75` and a deterministic operations-aware tokenizer over title, heading path, and content. Dense retrieval reuses the frozen Phase 8 BGE query provider and exact pgvector cosine distance; no approximate index is introduced for the 65-chunk corpus.
+- **Rationale:** Both branches remain inspectable and reproducible, while exact vector search avoids unjustified ANN complexity at this corpus size.
+
+### D-009-003 — Fuse branch ranks with fixed reciprocal rank fusion
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** Hybrid retrieval takes up to 20 candidates per branch and assigns equal RRF contribution with `k=60`. Ties resolve by descending fused score, best branch rank, then stable chunk ID.
+- **Rationale:** Rank fusion combines complementary score spaces without calibrating incomparable BM25 and cosine values or tuning on the final test split.
+
+### D-009-004 — Freeze benchmark inputs before one final evaluation
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** The committed benchmark contains manually curated graded qrels, a deterministic 30-query development/20-query final split, and no filters in primary queries. Query, qrel, retrieval-config, and corpus hashes form the benchmark identity. Only development results may inform implementation checks; the frozen final split is evaluated once.
+- **Rationale:** This prevents metadata leakage and test-driven tuning while making every reported result traceable to exact inputs.
+
+### D-009-005 — Keep retrieval offline and package-isolated
+
+- **Date:** 2026-10-08
+- **Status:** Accepted
+- **Decision:** `rag/retrieval` is an independently installable Python 3.12 package that reuses Phase 8 ingestion interfaces. It adds an offline CLI, tests, and reports only; `services/rag-service` remains health-only and Compose gains no new runtime service.
+- **Rationale:** Phase 9 proves retrieval quality without prematurely defining an online RAG or generation API.
+
+### Phase 10 handoff rule
+
+Before planning or implementing Phase 10, read `decisions.md`, `flow.md`, and
+`features.md` in full and preserve the frozen Phase 8/9 corpus, embedding,
+benchmark, and final-evaluation lineage. Phase 9 results must not be silently
+recomputed or tuned against the final split.
+
 ## Phase 3 — Incident Management Backend
 
 ### D-003-001 — PostgreSQL is the Phase 3 runtime and test database

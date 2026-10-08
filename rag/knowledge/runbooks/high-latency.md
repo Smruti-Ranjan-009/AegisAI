@@ -2,7 +2,7 @@
 title: High Latency Response
 document_type: runbook
 version: 1
-services: [platform, incident-service, telemetry-service]
+services: [platform, incident-service, telemetry-service, frontend, image-provider]
 incident_types: [high_latency]
 synthetic: true
 ---

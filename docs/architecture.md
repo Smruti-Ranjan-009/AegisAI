@@ -1,6 +1,9 @@
 # Planned Architecture
 
-Phase 8 preserves the operational service, incident, Kafka, feature, anomaly, classification, and model-lifecycle paths, then adds a deterministic knowledge-ingestion boundary and pgvector storage. Retrieval, ranking, grounded generation, model serving, production observability, frontend, and cloud capabilities remain future design goals.
+Phase 9 preserves the operational service, incident, Kafka, ML, lifecycle, and
+knowledge-ingestion paths, then adds an offline hybrid retrieval boundary over
+the active pgvector corpus. Reranking, grounded generation, model serving,
+production observability, frontend, and cloud capabilities remain future goals.
 
 ## Phase 3 Incident Management Path
 
@@ -193,7 +196,34 @@ PostgreSQL rag schema
 The isolated `rag/ingestion` package and its Alembic history own this path.
 Changed documents replace their chunks atomically, unchanged checksums are
 skipped, and absent sources become inactive. The FastAPI RAG service remains
-health-only. No retrieval or generation path is implemented.
+health-only.
+
+## Phase 9 Offline Retrieval Path
+
+```text
+active rag.documents + rag.chunks
+              |
+              +--------------------+
+              |                    |
+              v                    v
+     in-memory BM25         BGE query embedding
+  title + heading + body           |
+              |                    v
+              |           exact pgvector cosine
+              |                    |
+              +---------+----------+
+                        v
+             reciprocal rank fusion
+              candidate_k=20, k=60
+                        |
+                        v
+       ranked chunks + offline benchmark reports
+```
+
+Both branches use the same fingerprinted active snapshot and filter semantics.
+Primary evaluation is unfiltered and uses 50 manually authored queries with
+section-level graded qrels. The package is offline; it does not alter the
+health-only FastAPI service or Compose topology.
 
 ## Phase 2 Streaming Path
 
@@ -254,7 +284,7 @@ not perform feature engineering, inference, or incident creation.
                    Grafana
 ```
 
-The diagram describes intended long-term logical relationships, not fully deployed Phase 8 infrastructure.
+The diagram describes intended long-term logical relationships, not fully deployed Phase 9 infrastructure.
 
 ## Service Responsibilities
 
@@ -288,9 +318,10 @@ promotion, rollback, and audit. Serving and online parity remain future work.
 The production RAG service remains a health-only shell with no model, retrieval,
 or LLM dependency. Phase 8's separate `rag/ingestion` workspace owns the curated
 runbook/postmortem corpus, validated metadata, deterministic chunks, local BGE
-embeddings, ingestion manifests, and the PostgreSQL `rag` schema. Future phases
-may add hybrid retrieval, reranking, and grounded SLM-first generation without
-moving ingestion concerns into the API shell.
+embeddings, ingestion manifests, and the PostgreSQL `rag` schema. Phase 9's
+`rag/retrieval` workspace owns BM25, exact dense search, metadata filtering,
+RRF, and offline evaluation. Future phases may add reranking and grounded
+SLM-first generation without moving offline concerns into the API shell.
 
 ## Future Design Constraints
 
@@ -341,10 +372,11 @@ those frozen outputs. Later phases may add serving and drift monitoring.
 
 ### Retrieval-augmented generation
 
-Phase 8 implements only controlled source ingestion, local dense embeddings, and
-pgvector storage. Later phases will evaluate BM25, dense retrieval, reciprocal
-rank fusion, reranking, citations, grounded SLM-first generation, and RAG quality.
-No retrieval API, LLM SDK, or prompt orchestration is included now.
+Phase 8 implements controlled source ingestion, local dense embeddings, and
+pgvector storage. Phase 9 adds evaluated BM25, exact dense retrieval, and fixed
+reciprocal-rank fusion. Reranking, citations, grounded SLM-first generation,
+answer-quality evaluation, a retrieval API, LLM SDKs, and prompt orchestration
+remain future work.
 
 ### Observability
 
@@ -370,4 +402,4 @@ EC2
 Docker Compose
 ```
 
-AWS resources, deployment automation, and credentials are outside Phase 8.
+AWS resources, deployment automation, and credentials are outside Phase 9.

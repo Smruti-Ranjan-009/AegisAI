@@ -2,6 +2,62 @@
 
 This journal tracks implemented request, data, and failure paths. Future phases must read it before extending cross-service behavior.
 
+## Phase 10 — Reranking and local grounded generation
+
+### Before implementation
+
+Phase 9 ends at deterministic Hybrid RRF results over a frozen 65-chunk
+snapshot. There is no cross-encoder, compact generation evidence contract,
+local SLM provider, structured diagnosis schema, or application-level citation
+validation. The observed Phase 9 final split cannot be reused for tuning.
+
+### After implementation
+
+Add isolated `rag/reranking` and `rag/generation` packages while preserving the
+Phase 9 retriever and health-only RAG service. Reranking consumes the first ten
+Hybrid RRF candidates and emits five evidence items. Generation calls an
+on-demand loopback-only llama.cpp server with the verified local Qwen GGUF.
+
+```text
+user query
+  -> Phase 9 HybridRetriever.retrieve_branches
+  -> top-10 RRF RetrievalHit records
+  -> title + heading path + content passages
+  -> RerankerProvider.score
+       local: pinned MiniLM CrossEncoder on CPU
+       tests/CI: deterministic fake
+  -> stable reranked results with BM25/dense/RRF/cross-encoder lineage
+  -> top-5 EvidenceItem records [E1]...[E5]
+  -> deterministic context-budget check through provider tokenization
+  -> grounded_incident_v1 prompt
+  -> loopback LocalLlamaCppProvider.generate
+  -> Pydantic JSON validation
+  -> server-side citation reconstruction and claim-reference validation
+  -> grounded result or explicit insufficient_evidence
+```
+
+Failure paths are explicit: no candidates returns `insufficient_evidence`;
+reranker/model errors report reranker unavailable; checksum mismatch blocks SLM
+startup; a non-loopback URL is rejected; unavailable llama.cpp reports provider
+unavailable; context overflow drops lowest-ranked whole evidence records and
+fails if the irreducible prompt still cannot fit; malformed JSON, wrong status,
+missing/invented/duplicate citations, or mismatched schema fail with
+`generation_validation_failed`. Retrieved prompt-like text remains delimited
+untrusted evidence and never becomes an instruction.
+
+The implemented reranking benchmark freezes 30 new queries, manually resolved qrels,
+the corpus/retrieval/reranker contracts, and a 20-development/10-final split.
+Development may expose implementation defects; the guarded final report is
+written once. Phase 11 semantic/faithfulness evaluation is deliberately absent.
+
+The real reranker path passed against PostgreSQL/pgvector and the pinned models.
+The one-time ten-query final split improved NDCG@5 from `0.7302` to `0.7833`;
+development NDCG@5 decreased from `0.7763` to `0.7341` and was not tuned. The
+eight-case real Qwen smoke returned the expected status and valid schema and
+citations for every case. It covered five grounded families, two abstentions,
+and adversarial retrieved instructions. The on-demand server is never added to
+Compose and is stopped after local validation.
+
 ## Phase 9 — Offline hybrid retrieval
 
 ### Before implementation

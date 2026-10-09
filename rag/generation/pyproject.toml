@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools==82.0.1", "wheel==0.46.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegis-rag-generation"
+version = "0.1.0"
+description = "Phase 10 local grounded generation for AegisAI"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "aegis-rag-reranking==0.1.0",
+  "httpx==0.28.1",
+  "pydantic==2.11.5",
+]
+
+[project.optional-dependencies]
+test = [
+  "pytest==8.4.0",
+  "ruff==0.11.13",
+]
+
+[project.scripts]
+aegis-rag-generate = "aegis_rag_generation.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: exercises Phase 10 packages without real model downloads"]

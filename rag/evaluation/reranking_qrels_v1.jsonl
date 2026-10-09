@@ -1,0 +1,60 @@
+{"query_id":"rr-cpu-01","source_path":"runbooks/cpu-saturation.md","heading_path":["CPU Saturation Response","Triage"],"grade":2}
+{"query_id":"rr-cpu-01","source_path":"runbooks/cpu-saturation.md","heading_path":["CPU Saturation Response","Detection"],"grade":1}
+{"query_id":"rr-cpu-02","source_path":"runbooks/cpu-saturation.md","heading_path":["CPU Saturation Response","Detection"],"grade":2}
+{"query_id":"rr-cpu-02","source_path":"troubleshooting/cross-signal-triage.md","heading_path":["Cross-Signal Incident Triage Guide","Start with a timeline"],"grade":1}
+{"query_id":"rr-cpu-03","source_path":"postmortems/cpu-saturation-batch.md","heading_path":["Synthetic Postmortem: Batch Work Caused API CPU Saturation","Root cause"],"grade":2}
+{"query_id":"rr-cpu-03","source_path":"postmortems/cpu-saturation-batch.md","heading_path":["Synthetic Postmortem: Batch Work Caused API CPU Saturation","Timeline"],"grade":1}
+{"query_id":"rr-cpu-04","source_path":"runbooks/cpu-saturation.md","heading_path":["CPU Saturation Response","Mitigation"],"grade":2}
+{"query_id":"rr-cpu-04","source_path":"runbooks/cpu-saturation.md","heading_path":["CPU Saturation Response","Triage"],"grade":1}
+{"query_id":"rr-mem-01","source_path":"runbooks/memory-leak.md","heading_path":["Memory Growth and Leak Response","Detection"],"grade":2}
+{"query_id":"rr-mem-01","source_path":"runbooks/memory-leak.md","heading_path":["Memory Growth and Leak Response","Verification"],"grade":1}
+{"query_id":"rr-mem-02","source_path":"postmortems/memory-leak-cache.md","heading_path":["Synthetic Postmortem: Unbounded Cache Memory Growth","Root cause"],"grade":2}
+{"query_id":"rr-mem-02","source_path":"runbooks/memory-leak.md","heading_path":["Memory Growth and Leak Response","Triage"],"grade":1}
+{"query_id":"rr-mem-03","source_path":"runbooks/memory-leak.md","heading_path":["Memory Growth and Leak Response","Mitigation"],"grade":2}
+{"query_id":"rr-mem-03","source_path":"postmortems/memory-leak-cache.md","heading_path":["Synthetic Postmortem: Unbounded Cache Memory Growth","Timeline"],"grade":1}
+{"query_id":"rr-mem-04","source_path":"runbooks/memory-leak.md","heading_path":["Memory Growth and Leak Response","Triage"],"grade":2}
+{"query_id":"rr-mem-04","source_path":"troubleshooting/cross-signal-triage.md","heading_path":["Cross-Signal Incident Triage Guide","Preserve evidence"],"grade":1}
+{"query_id":"rr-svc-01","source_path":"postmortems/service-startup.md","heading_path":["Synthetic Postmortem: Invalid Configuration Prevented Startup","Root cause"],"grade":2}
+{"query_id":"rr-svc-01","source_path":"postmortems/service-startup.md","heading_path":["Synthetic Postmortem: Invalid Configuration Prevented Startup","Timeline"],"grade":1}
+{"query_id":"rr-svc-02","source_path":"runbooks/service-failure.md","heading_path":["Service Failure Response","Stabilization"],"grade":2}
+{"query_id":"rr-svc-02","source_path":"troubleshooting/deployment-correlation.md","heading_path":["Deployment Correlation Troubleshooting","Choose a safe experiment"],"grade":1}
+{"query_id":"rr-svc-03","source_path":"runbooks/service-failure.md","heading_path":["Service Failure Response","Dependency checks"],"grade":2}
+{"query_id":"rr-svc-03","source_path":"runbooks/dependency-failure.md","heading_path":["Dependency Failure Response","Confirm the dependency"],"grade":1}
+{"query_id":"rr-svc-04","source_path":"runbooks/service-failure.md","heading_path":["Service Failure Response","Scope"],"grade":2}
+{"query_id":"rr-svc-04","source_path":"troubleshooting/deployment-correlation.md","heading_path":["Deployment Correlation Troubleshooting","Establish correlation"],"grade":1}
+{"query_id":"rr-dep-01","source_path":"runbooks/dependency-failure.md","heading_path":["Dependency Failure Response","Contain retries"],"grade":2}
+{"query_id":"rr-dep-01","source_path":"postmortems/latency-retry-storm.md","heading_path":["Synthetic Postmortem: Retry Storm Increased Tail Latency","Corrective actions"],"grade":1}
+{"query_id":"rr-dep-02","source_path":"runbooks/dependency-failure.md","heading_path":["Dependency Failure Response","Confirm the dependency"],"grade":2}
+{"query_id":"rr-dep-02","source_path":"troubleshooting/cross-signal-triage.md","heading_path":["Cross-Signal Incident Triage Guide","Test competing explanations"],"grade":1}
+{"query_id":"rr-dep-03","source_path":"postmortems/database-connections.md","heading_path":["Synthetic Postmortem: Database Connection Exhaustion","Impact"],"grade":2}
+{"query_id":"rr-dep-03","source_path":"troubleshooting/database-latency.md","heading_path":["Database Latency Troubleshooting","Locate the wait"],"grade":1}
+{"query_id":"rr-dep-04","source_path":"troubleshooting/database-latency.md","heading_path":["Database Latency Troubleshooting","Locate the wait"],"grade":2}
+{"query_id":"rr-dep-04","source_path":"troubleshooting/database-latency.md","heading_path":["Database Latency Troubleshooting","Check demand and capacity"],"grade":1}
+{"query_id":"rr-lat-01","source_path":"runbooks/high-latency.md","heading_path":["High Latency Response","Establish the symptom"],"grade":2}
+{"query_id":"rr-lat-01","source_path":"troubleshooting/database-latency.md","heading_path":["Database Latency Troubleshooting","Locate the wait"],"grade":1}
+{"query_id":"rr-lat-02","source_path":"postmortems/latency-retry-storm.md","heading_path":["Synthetic Postmortem: Retry Storm Increased Tail Latency","Impact"],"grade":2}
+{"query_id":"rr-lat-02","source_path":"runbooks/high-latency.md","heading_path":["High Latency Response","Investigate"],"grade":1}
+{"query_id":"rr-lat-03","source_path":"runbooks/high-latency.md","heading_path":["High Latency Response","Validate"],"grade":2}
+{"query_id":"rr-lat-03","source_path":"troubleshooting/cross-signal-triage.md","heading_path":["Cross-Signal Incident Triage Guide","Confirm recovery"],"grade":1}
+{"query_id":"rr-lat-04","source_path":"postmortems/latency-retry-storm.md","heading_path":["Synthetic Postmortem: Retry Storm Increased Tail Latency","Root cause"],"grade":2}
+{"query_id":"rr-lat-04","source_path":"runbooks/high-latency.md","heading_path":["High Latency Response","Mitigate"],"grade":1}
+{"query_id":"rr-cpu-05","source_path":"runbooks/cpu-saturation.md","heading_path":["CPU Saturation Response","Escalation and recovery"],"grade":2}
+{"query_id":"rr-cpu-05","source_path":"runbooks/cpu-saturation.md","heading_path":["CPU Saturation Response","Mitigation"],"grade":1}
+{"query_id":"rr-cpu-06","source_path":"postmortems/cpu-saturation-batch.md","heading_path":["Synthetic Postmortem: Batch Work Caused API CPU Saturation","Timeline"],"grade":2}
+{"query_id":"rr-cpu-06","source_path":"postmortems/cpu-saturation-batch.md","heading_path":["Synthetic Postmortem: Batch Work Caused API CPU Saturation","Root cause"],"grade":1}
+{"query_id":"rr-mem-05","source_path":"runbooks/memory-leak.md","heading_path":["Memory Growth and Leak Response","Detection"],"grade":2}
+{"query_id":"rr-mem-05","source_path":"postmortems/memory-leak-cache.md","heading_path":["Synthetic Postmortem: Unbounded Cache Memory Growth","Impact"],"grade":1}
+{"query_id":"rr-mem-06","source_path":"runbooks/memory-leak.md","heading_path":["Memory Growth and Leak Response","Verification"],"grade":2}
+{"query_id":"rr-mem-06","source_path":"runbooks/memory-leak.md","heading_path":["Memory Growth and Leak Response","Mitigation"],"grade":1}
+{"query_id":"rr-svc-05","source_path":"runbooks/service-failure.md","heading_path":["Service Failure Response","Scope"],"grade":2}
+{"query_id":"rr-svc-05","source_path":"postmortems/service-startup.md","heading_path":["Synthetic Postmortem: Invalid Configuration Prevented Startup","Impact"],"grade":1}
+{"query_id":"rr-svc-06","source_path":"postmortems/service-startup.md","heading_path":["Synthetic Postmortem: Invalid Configuration Prevented Startup","Root cause"],"grade":2}
+{"query_id":"rr-svc-06","source_path":"postmortems/service-startup.md","heading_path":["Synthetic Postmortem: Invalid Configuration Prevented Startup","Corrective actions"],"grade":1}
+{"query_id":"rr-dep-05","source_path":"postmortems/database-connections.md","heading_path":["Synthetic Postmortem: Database Connection Exhaustion","Root cause"],"grade":2}
+{"query_id":"rr-dep-05","source_path":"troubleshooting/database-latency.md","heading_path":["Database Latency Troubleshooting","Check demand and capacity"],"grade":1}
+{"query_id":"rr-dep-06","source_path":"runbooks/dependency-failure.md","heading_path":["Dependency Failure Response","Closeout"],"grade":2}
+{"query_id":"rr-dep-06","source_path":"troubleshooting/database-latency.md","heading_path":["Database Latency Troubleshooting","Verify"],"grade":1}
+{"query_id":"rr-lat-05","source_path":"runbooks/high-latency.md","heading_path":["High Latency Response","Mitigate"],"grade":2}
+{"query_id":"rr-lat-05","source_path":"postmortems/latency-retry-storm.md","heading_path":["Synthetic Postmortem: Retry Storm Increased Tail Latency","Corrective actions"],"grade":1}
+{"query_id":"rr-lat-06","source_path":"runbooks/high-latency.md","heading_path":["High Latency Response","Establish the symptom"],"grade":2}
+{"query_id":"rr-lat-06","source_path":"runbooks/high-latency.md","heading_path":["High Latency Response","Investigate"],"grade":1}

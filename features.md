@@ -2,6 +2,96 @@
 
 Statuses: `PLANNED`, `IN PROGRESS`, `DONE`, `BLOCKED`, `DEFERRED`.
 
+## Phase 10 — Reranking and local grounded generation
+
+| ID | Status | Feature | Verification target |
+|---|---|---|---|
+| F-010-001 | DONE | Pinned CPU MiniLM reranker, deterministic fake, top-10 candidate and top-5 evidence contracts | 13 unit/non-DB plus 2 pgvector integration tests; real local model and latency passed |
+| F-010-002 | DONE | New 30-query manually curated reranking benchmark with frozen 20/10 split | 60 qrels resolved; development frozen; one guarded final report written |
+| F-010-003 | DONE | Local Qwen3 4B Q4_K_M setup and loopback llama.cpp provider | Revision/checksum, model health, CPU fallback contract, and measured real smoke passed |
+| F-010-004 | DONE | Versioned grounded prompt, context budgeting, structured response, citations, and abstention | 23 fake-backed tests and 8/8 real functional smoke cases passed |
+| F-010-005 | DONE | Phase 10 CLI, documentation, CI, security guidance, and full regression | No model downloads in CI; all prior tests/builds/health checks preserved |
+
+### Phase 10 working history
+
+- **Scope:** Extend only the completed offline Phase 9 retrieval path; keep the
+  RAG HTTP service health-only and defer formal quality evaluation to Phase 11.
+- **Design:** Freeze official MiniLM/Qwen revisions, use explicit provider
+  boundaries, preserve retrieval lineage, send five delimited evidence records,
+  and fail closed after typed JSON/citation validation.
+- **Implementation:** Both installable packages, provider boundaries,
+  benchmark/evaluator, CLIs, structured generation/citation enforcement, and
+  fake-provider tests are complete. Real pinned MiniLM and Qwen validation passed.
+- **Validation:** The new holdout, real model smoke/performance run, Phase 10
+  suites, all prior regressions, Ruff, six Docker images, full Compose health,
+  YAML, and Git hygiene passed.
+
+## Phase 10 bugs and failed attempts
+
+| ID | Status | Finding | Resolution |
+|---|---|---|---|
+| B-010-001 | FIXED | The first editable install built all four local RAG wheels but the managed sandbox denied writes to the Conda/user site-packages directory; pytest therefore could not import the new packages. The same pass found only mechanical Ruff import-order and line-length findings. | Re-ran the scoped local editable install with approved environment access, applied Ruff's nine mechanical fixes plus two explicit wraps, and both package scopes now lint cleanly. |
+| B-010-002 | FIXED | Running both independently configured Phase 10 pytest trees in one process caused duplicate `helpers`, `test_config`, and `test_integration` module names to collide during collection. | Preserved package-local test layouts and ran each suite from its owning package directory, matching isolated dependency management and CI jobs. |
+| B-010-003 | FIXED | The initial generation suite passed 22 of 23 tests; the unavailable fake raised at `generate`, while the assertion expected the distinct tokenization-stage error text. | Assert the actual explicit generation-stage failure; provider behavior and fail-closed production handling remain unchanged. |
+| B-010-004 | FIXED | Docker Desktop was stopped before pgvector validation; after it started, all 15 reranking tests passed. The first real-model search then loaded pinned MiniLM but the restricted sandbox blocked BGE's optional Hugging Face metadata HEAD request. | Kept both pinned models and reran the unchanged real search with scoped model-network access; checksum/load/search passed without loosening revisions or gates. |
+| B-010-005 | FIXED | The first eight-case real Qwen smoke passed six cases, including both abstentions and the adversarial fixture. One known case expanded `E1` into an explanatory string and another omitted a citation used by a claim; both correctly failed application validation. | Constrained evidence-reference strings to exact `E1`–`E5` values in the generated JSON schema, stated claim/citation set equality explicitly in the frozen prompt contract, and scoped smoke inputs to the evidence-backed behavior under test. Single-pass generation and strict failure behavior remain; the final smoke passed 8/8. |
+| B-010-006 | FIXED | After evidence IDs gained a schema regex, the unknown-citation unit fixture `E7` failed at schema validation rather than reaching the intended evidence-map check. | Use absent-but-schema-valid `E3` with a two-item evidence pack, preserving explicit coverage of server-side invented-citation rejection. |
+| B-010-007 | FIXED | A late reranking rerun omitted the repository-local pytest base temp and test-database environment, so nine tests passed, two integration tests skipped, and four `tmp_path` setups hit the managed Windows temp-directory ACL. | Re-ran the unchanged suite with ignored `.runtime/pytest-phase10-reranking` and the documented local PostgreSQL test URL; all 15 tests passed. |
+| B-010-008 | FIXED | The first final real-search verification exposed that the new root README passed the query positionally even though the reranking CLI requires `--query`; argparse rejected it before model loading. | Corrected the README command to match the tested CLI contract and reran the unchanged real provider search successfully. |
+| B-010-009 | FIXED | Replacing SentenceTransformers' deprecated `cache_folder` argument with a Transformers `cache_dir` changed cache resolution and caused an otherwise cached real-model check to attempt blocked metadata requests. | Restored the already validated `cache_folder` contract. The non-fatal upstream deprecation warning is documented as a limitation rather than risking model-cache drift in Phase 10. |
+| B-010-010 | FIXED | A late reranking integration rerun mistakenly pointed the destructive test fixture at the local `aegisai` development database, replacing its real BGE corpus with the deterministic fake-vector fixture and changing the live fingerprint. | Recomputed the curated corpus with pinned real BGE, restored all canonical chunk identities from preserved reports without deleting rows, and verified the exact frozen fingerprint plus store integrity. A separate `aegis_rag_test` database is used for all remaining integration regressions; the write-once final report was not rerun. |
+| B-010-011 | FIXED | The first safe in-place corpus recovery script stopped at its pre-write assertion because one Phase 9 test report did not contain all 65 historical chunk identities. | Used the union of the preserved Phase 9 development/test and Phase 10 development/final reports, asserted exactly 65 unique source/heading keys before mutation, and restored the canonical identities and real vectors in one transaction. |
+| B-010-012 | FIXED | The first broad regression batch launched the feature suite from its package directory with a nonexistent local `.runtime` parent, then addressed the other ML test paths as though it were at repository root. The sandbox also redirected Maven's cache to unwritable `C:\.m2`. | Re-ran all four offline ML suites from repository root with distinct repo-local pytest temp paths, and ran the unchanged Maven Wrapper suite with its normal approved cache/Docker access. |
+| B-010-013 | FIXED | Reusing the lifecycle suite's base temp after an earlier yielded process left one Windows SQLite handle open, so seven tests passed before 19 setups failed while pytest tried to clean that old directory. | Preserved the locked ignored directory and ran the unchanged 26-test suite in a fresh unique repository-local base temp, matching a clean hosted runner. |
+| B-010-014 | FIXED | The first sandboxed llama.cpp shutdown attempt was denied by Windows, while non-terminating PowerShell error behavior still printed the command's success message. | Re-ran termination with the required OS permission and `-ErrorAction Stop`, then explicitly verified PID 10700 was absent. Compose cleanup separately removed all validation containers and network without `-v`. |
+| B-010-015 | FIXED | The first final-audit command invoked the database-backed benchmark validator after Compose teardown and over-escaped a one-line Python YAML job-count expression, producing no validator result and a local syntax error. | Temporarily restarted only PostgreSQL, reran committed benchmark validation, parsed the workflow with a simple assertion, and tore PostgreSQL/network down again without deleting volumes. |
+
+## Phase 10 reranking measured verification
+
+- Benchmark `reranking-v1-36c7394661c8`: 30 new queries, 60 manually
+  curated qrels, 20/10 split; query/qrel/config hashes `999bf432...25b`,
+  `24ce9431...31d`, and `01456aff...917`; corpus remained `f5a7d43...943b`.
+- Development primary NDCG@5 decreased from Hybrid `0.7763` to reranked
+  `0.7341`; no tuning followed.
+- The one-time final NDCG@5 improved from `0.7302` to `0.7833`; NDCG@10 from
+  `0.7578` to `0.8014`; Recall@5 from `0.6500` to `0.7000`; MRR@10 remained
+  `0.9000`.
+- Final warmed CPU reranking over ten passages measured p50 `87.45 ms`, p95
+  `110.95 ms`, p99 `112.08 ms`, mean `92.25 ms`; retrieval plus reranking p50
+  was `108.84 ms`. Final-process model load was `0.224 s`.
+
+## Phase 10 grounded-generation measured verification
+
+- Verified `Qwen3-4B-Q4_K_M.gguf` at the frozen revision and SHA-256; the
+  2,497,280,256-byte file stayed under ignored `.runtime/rag/models`.
+- Official llama.cpp build 11515 served on `127.0.0.1:8081` with context 4096,
+  20 GPU layers, six CPU threads, one slot, and non-thinking generation.
+- The final functional smoke passed 8/8 expected statuses, 8/8 schemas, and 8/8
+  citation checks in `91.24 s`; generation throughput was `16.61`–`18.57`
+  tokens/s. Non-streaming requests did not expose time-to-first-token.
+- Peak server working set was approximately `3.99 GB`, peak private bytes
+  `5.23 GB`, and observed total GPU use increased by approximately `1.76 GB`
+  over the pre-server reading on the tested 4 GB RTX 3050 Laptop GPU.
+- This is functional/runtime validation only. Phase 11 owns semantic and
+  faithfulness evaluation; no answer-quality claim or tuning followed.
+
+## Phase 10 final regression verification
+
+- Phase 10: reranking 13 unit + 2 pgvector integration; generation 22 unit +
+  1 integration. Phase 9 retrieval 21 and Phase 8 ingestion 24 passed.
+- Prior phases: lifecycle 26, classification 21, anomaly detection 23, feature
+  engineering 29, telemetry lab 17, Java 37, telemetry/ML/RAG services 17/1/1,
+  and Kafka integration 2 all passed.
+- Ruff passed across every service, script/test utility, ML package, and RAG
+  package. The workflow parsed as YAML with 13 jobs and Compose config passed.
+- All six project images built. PostgreSQL, Kafka, topic init, worker, incident,
+  telemetry, ML, and RAG started successfully; the four API health responses and
+  Incident Actuator were `UP`.
+- Validation containers and `aegis-backbone` were removed without deleting named
+  volumes. The on-demand llama.cpp server was stopped and its PID verified absent.
+- The Qwen GGUF, Hugging Face caches, reports, logs, resource samples, pytest
+  trees, and runtime databases remain ignored. Hosted GitHub Actions was not run.
+
 ## Phase 9 — Hybrid retrieval
 
 | ID | Status | Feature | Verification target |

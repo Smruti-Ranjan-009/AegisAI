@@ -53,6 +53,11 @@ logs/
 *.pth
 *.safetensors
 *.bin
+*.gguf
+llama-*.exe
+llama*.dll
+*.resource.json
+*.nvidia-smi.csv
 /artifacts/anomaly_detection/**
 /artifacts/incident_classification/**
 

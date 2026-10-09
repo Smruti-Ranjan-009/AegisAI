@@ -2,15 +2,15 @@
 
 AI-powered incident intelligence platform combining ML-based anomaly detection, hybrid RAG, and event-driven microservices to diagnose distributed-system failures and generate grounded remediation recommendations.
 
-> **Current status: Phase 9 — Hybrid Retrieval**
+> **Current status: Phase 10 — Cross-Encoder Reranking and Local Grounded Generation**
 
 ## Overview
 
-AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 9 adds deterministic BM25, exact dense retrieval, reciprocal-rank fusion, metadata filters, and a frozen retrieval benchmark over the Phase 8 corpus. It stops before reranking or generation.
+AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 10 adds pinned CPU cross-encoder reranking and structured, citation-validated generation through an on-demand local quantized SLM. The production RAG API remains health-only.
 
 ## Problem Statement
 
-Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 9 measures which stored sections can be recovered from realistic operational questions; it does not generate answers.
+Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 10 provides a local, advisory offline diagnosis path with strict evidence and abstention contracts; it does not automate remediation or expose a production endpoint.
 
 ## Long-Term Architecture
 
@@ -37,7 +37,7 @@ services/       Independently buildable backend services
 frontend/       Future React application
 shared/         Versioned event contracts and future shared schemas
 ml/             Installable feature-engineering, anomaly, and classification packages
-rag/            Knowledge ingestion, Phase 9 retrieval, and evaluation assets
+rag/            Knowledge ingestion, retrieval, reranking, generation, and evaluation assets
 infrastructure/ Docker foundations and the isolated telemetry lab
 data/           Raw capture location and future curated samples
 tests/          Cross-service and Kafka integration tests
@@ -49,13 +49,13 @@ Each Python service owns its dependencies; there is intentionally no root `requi
 
 ## Current Implementation Status
 
-Phase 9 includes all Phase 0–8 capabilities plus an isolated `rag/retrieval`
-package. It searches one fingerprinted active corpus snapshot with BM25 and exact
-BGE/pgvector cosine retrieval, applies identical controlled filters, and combines
-20 candidates per branch with fixed equal-weight RRF. A versioned 50-query,
-100-qrel benchmark reports retrieval quality, breakdowns, complementarity, and
-warmed CPU latency. Python Alembic continues to own only the `rag` schema;
-Spring Flyway remains unchanged.
+Phase 10 includes all Phase 0–9 capabilities plus isolated `rag/reranking` and
+`rag/generation` packages. A pinned MiniLM cross-encoder reranks ten hybrid
+candidates into five evidence records. An on-demand loopback llama.cpp server
+hosts a checksum-verified Qwen3 4B Q4_K_M model and returns a strict structured
+diagnosis whose citations are independently validated and reconstructed from
+the evidence map. Python Alembic continues to own only the `rag` schema; Spring
+Flyway remains unchanged.
 
 The implemented offline path is: telemetry → anomaly detection → abnormal
 context aggregation → five-class incident prediction → MLflow tracking → model
@@ -65,11 +65,11 @@ measured results, and limitations are in
 [docs/incident-classification.md](docs/incident-classification.md); Phase 7 is in
 [docs/model-lifecycle.md](docs/model-lifecycle.md).
 
-Phase 9 does **not** include reranking, a cross-encoder, RAG question answering,
-an SLM or LLM, prompt orchestration, model serving, automated Kafka-to-incident
-creation, Redis, AWS deployment, production observability, authentication,
-RBAC, or a frontend. The production `rag-service` and `ml-service` remain
-health-only.
+Phase 10 does **not** include a production diagnosis API, permanent model
+server, formal generation-quality evaluation, automated remediation,
+Kafka-to-incident creation, Redis, AWS deployment, production observability,
+authentication, RBAC, or a frontend. The production `rag-service` and
+`ml-service` remain health-only.
 
 The implementation journals are [decisions.md](decisions.md), [flow.md](flow.md), and [features.md](features.md). Future phases should read these before changing established behavior.
 
@@ -250,6 +250,30 @@ Generated benchmark reports remain under ignored `.runtime/rag/retrieval/`.
 See [docs/hybrid-retrieval.md](docs/hybrid-retrieval.md) for the retrieval
 contract, benchmark methodology, measured results, and limitations.
 
+## Reranking and Local Grounded Generation
+
+Install the two Phase 10 packages after their Phase 8/9 dependencies. The model
+extra is local-only; hosted CI uses deterministic fakes and downloads no model:
+
+```powershell
+conda activate aegis
+python -m pip install -e ".\rag\ingestion[embeddings]"
+python -m pip install -e ".\rag\retrieval"
+python -m pip install -e ".\rag\reranking[test,models]"
+python -m pip install -e ".\rag\generation[test]"
+docker compose up -d --wait postgres
+python -m aegis_rag_reranking validate-benchmark --json
+python -m aegis_rag_reranking search --query "database connection pool exhaustion" --json
+python -m aegis_rag_generation verify-model --json
+python -m aegis_rag_generation model-health --json
+python -m aegis_rag_generation diagnose --query "Why is checkout latency high?" --json
+```
+
+The real local Qwen command, pinned checksums, one-time reranking results,
+functional smoke results, security model, and resource measurements are in
+[docs/reranking-and-grounded-generation.md](docs/reranking-and-grounded-generation.md).
+The llama.cpp server is on-demand, loopback-only, and not part of Compose.
+
 ## Kafka Telemetry Pipeline
 
 Install the telemetry-service dependencies, then start Kafka, deterministic
@@ -371,6 +395,14 @@ python -m pip install -e ".\rag\retrieval[test]"
 python -m pytest rag\retrieval\tests -q --basetemp=.runtime\pytest-phase9
 python -m ruff check rag\retrieval
 
+python -m pip install -e ".\rag\reranking[test]"
+python -m pytest rag\reranking\tests -q --basetemp=.runtime\pytest-phase10-reranking
+python -m ruff check rag\reranking
+
+python -m pip install -e ".\rag\generation[test]"
+python -m pytest rag\generation\tests -q --basetemp=.runtime\pytest-phase10-generation
+python -m ruff check rag\generation
+
 $env:KAFKA_INTEGRATION = "1"
 python -m pytest tests\integration -m kafka_integration
 ```
@@ -441,8 +473,9 @@ Invoke-RestMethod http://localhost:8003/health
 7. Phase 6: incident classification (complete)
 8. Phase 7: MLflow experiment tracking and model lifecycle (complete)
 9. Phase 8: RAG ingestion and vector knowledge base (complete)
-10. Phase 9: hybrid BM25 + dense + RRF retrieval (current)
-11. Phase 10 and later: reranking, grounded generation, model serving, frontend, production observability, CI/CD, and AWS delivery
+10. Phase 9: hybrid BM25 + dense + RRF retrieval (complete)
+11. Phase 10: cross-encoder reranking and local grounded generation (current)
+12. Phase 11 and later: formal RAG evaluation, model serving, frontend, production observability, CI/CD, and AWS delivery
 
 Each later capability will be introduced as a separate scoped phase.
 
@@ -453,10 +486,12 @@ Each later capability will be introduced as a separate scoped phase.
 - Use environment variables locally and a managed secret store for future deployments.
 - Treat values in `.env.example` as non-production placeholders.
 - Keep the unauthenticated local MLflow UI bound to `127.0.0.1`; never expose it publicly.
+- Keep the local llama.cpp endpoint bound to loopback; verify the GGUF checksum before startup.
+- Treat retrieved text as untrusted evidence and never execute generated remediation actions automatically.
 - Load joblib/cloudpickle model artifacts only from trusted locally generated sources.
 
 ## Future Deployment Strategy
 
 The planned portfolio deployment path is GitHub Actions to AWS IAM OIDC,
-Amazon ECR, an EC2 host, and Docker Compose. Phase 9 contains no AWS resources,
+Amazon ECR, an EC2 host, and Docker Compose. Phase 10 contains no AWS resources,
 deployment workflows, credentials, or production infrastructure.

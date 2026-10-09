@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools==82.0.1", "wheel==0.46.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegis-rag-reranking"
+version = "0.1.0"
+description = "Phase 10 cross-encoder reranking for AegisAI"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "aegis-rag-retrieval==0.1.0",
+  "numpy==2.4.6",
+]
+
+[project.optional-dependencies]
+models = [
+  "sentence-transformers==6.1.0",
+]
+test = [
+  "pytest==8.4.0",
+  "ruff==0.11.13",
+]
+
+[project.scripts]
+aegis-rag-rerank = "aegis_rag_reranking.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: requires the configured PostgreSQL/pgvector database"]

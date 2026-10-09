@@ -2,6 +2,72 @@
 
 This journal records implementation decisions as they are made. Future phases must read it before changing established behavior.
 
+## Phase 10 decisions
+
+### D-010-001 — Freeze a small CPU cross-encoder over Phase 9 hybrid candidates
+
+- **Date:** 2026-10-09
+- **Status:** Accepted
+- **Decision:** Rerank the first ten Phase 9 Hybrid RRF results with `cross-encoder/ms-marco-MiniLM-L6-v2` at revision `233902d25c440f23af6f7d6e94d2946bac0bee0a` on CPU. Load `model.safetensors` (official SHA-256 `821d1aa69520101d6e0737f78a042ae25b19e5cb9160701909d10434f4aeb0ae`) and construct each passage from title, heading path, and chunk content only. Preserve every Phase 9 score/rank and use original RRF rank then chunk ID as deterministic reranker tie-breakers. Select the first five reranked items as generation evidence.
+- **Rationale:** The Apache-2.0 MiniLM cross-encoder is small, English, SentenceTransformers-compatible, and practical on CPU. Ten candidates retain the existing final-test retrieval depth while five concise evidence items bound latency and distraction without exposing labels or qrels.
+- **Consequences:** CUDA is optional and never required. Candidate depth, evidence depth, passage representation, device, model revision, and tie handling are frozen before the new final holdout.
+
+### D-010-002 — Use a genuinely new frozen reranking holdout
+
+- **Date:** 2026-10-09
+- **Status:** Accepted
+- **Decision:** Phase 10 owns 30 new manually authored queries with manually inspected graded qrels, split into 20 development and ten final queries. The final split contains two queries per incident family and balances the five query styles. Query/qrel hashes, active corpus fingerprint, Phase 9 retrieval contract, reranker revision, candidate/evidence depths, passage format, and metrics are frozen after development; the final report may be created once and never overwritten.
+- **Rationale:** The Phase 9 final queries have already been observed and cannot legitimately drive reranker design. NDCG@5 is primary because the reranker's output directly forms the five-item generation evidence pack.
+- **Consequences:** Phase 9 reports remain historical and are not rerun or tuned. Honest degradation or narrow gains remain reportable outcomes.
+
+### D-010-003 — Pin the official local Qwen GGUF and verify its bytes
+
+- **Date:** 2026-10-09
+- **Status:** Accepted
+- **Decision:** Grounded generation uses `Qwen/Qwen3-4B-GGUF` revision `bc640142c66e1fdd12af0bd68f40445458f3869b`, file `Qwen3-4B-Q4_K_M.gguf`, Q4_K_M quantization, under ignored `.runtime/rag/models`. The expected official SHA-256 is `7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5`; setup and startup must reject a mismatch.
+- **Rationale:** The official Apache-2.0 4B quantized model is local, reproducible, privacy-preserving, and suitable for the documented laptop target without introducing a hosted provider or larger fallback.
+- **Consequences:** The approximately 2.5 GB model is deliberately downloaded outside tests and is never committed. The repository records identity and integrity metadata, not weights.
+
+### D-010-004 — Serve the SLM on demand through loopback-only llama.cpp
+
+- **Date:** 2026-10-09
+- **Status:** Accepted
+- **Decision:** Use an on-demand official `llama-server` bound to `127.0.0.1:8081`, with a 4096-token context, configurable GPU layer offload, and CPU fallback. Start with conservative offload on the 4 GB RTX 3050 and prefer stable execution over maximum GPU residency. Generation clients reject every non-loopback endpoint.
+- **Rationale:** llama.cpp provides a lightweight Windows-capable GGUF runtime and local OpenAI-compatible HTTP plus exact tokenization without adding a permanent container or coupling generation code to native bindings.
+- **Consequences:** No server is added to Compose. Runtime version, threads, GPU layers, RAM/VRAM behavior, and performance are measured from the actual local validation rather than assumed.
+
+### D-010-005 — Make evidence and output contracts explicit and hostile-data aware
+
+- **Date:** 2026-10-09
+- **Status:** Accepted
+- **Decision:** Prompt version `grounded_incident_v1` sends reranked evidence in order as immutable `[E1]` through `[E5]` records containing title, heading, source path, and content. System, user-query, and evidence sections are explicitly delimited; retrieved instructions are untrusted data and cannot alter the contract. Generation uses temperature 0, top-p 1, seed 42, a frozen output limit, Qwen non-thinking mode through supported chat-template controls, and no hidden retry.
+- **Rationale:** Stable visible evidence identifiers enable deterministic server-side citation reconstruction, while strict separation prevents qrels, labels, secrets, or document-borne instructions from becoming model authority.
+- **Consequences:** The model receives no tools, file access, environment dump, or remote URLs. Recommendations are advisory only and are never executed.
+
+### D-010-006 — Validate structured grounded output and fail closed
+
+- **Date:** 2026-10-09
+- **Status:** Accepted
+- **Decision:** Pydantic validates the compact `grounded | insufficient_evidence` schema. Every grounded cause/action references supplied evidence, grounded outputs contain citations, citation IDs are unique and valid, and source/heading fields are reconstructed from the server-side evidence map rather than trusted from model text. Malformed JSON, schema mismatch, invented/missing/duplicate citations, provider failure, and context overflow produce explicit safe failures. Empty retrieval/reranking returns `insufficient_evidence` before generation; no arbitrary score threshold is introduced.
+- **Rationale:** Grammar-constrained output is useful but not a trust boundary. Independent application validation prevents partial or hallucinated content from being returned as grounded diagnosis.
+- **Consequences:** Insufficient-evidence responses may contain no citations. Oversized prompts deterministically drop the lowest-ranked evidence item and record it; arbitrary string truncation is forbidden.
+
+### D-010-007 — Keep Phase 10 offline, package-isolated, and fakeable in CI
+
+- **Date:** 2026-10-09
+- **Status:** Accepted
+- **Decision:** `rag/reranking` and `rag/generation` are independent Python 3.12 packages with provider protocols. Hosted CI uses deterministic fake embeddings, reranking, and SLM responses against real pgvector integration paths and downloads no model. `services/rag-service` remains health-only.
+- **Rationale:** Provider seams make contracts and failure behavior testable without network/model variability while preserving real local validation as an explicit developer workflow.
+- **Consequences:** No LangChain, hosted LLM SDK, production diagnosis endpoint, permanent SLM process, or Phase 9 dependency mutation is introduced.
+
+### D-010-008 — Defer formal generation quality evaluation to Phase 11
+
+- **Date:** 2026-10-09
+- **Status:** Accepted
+- **Decision:** Phase 10 performs a compact real functional smoke suite for schema, citations, abstention, adversarial evidence, and runtime performance only. It adds no LLM judge, RAGAS, DeepEval, calibrated confidence, faithfulness score, or final generation-quality claim.
+- **Rationale:** Runtime correctness and security contracts must exist before a separately designed, contamination-aware evaluation. Calling eight smoke cases a quality benchmark would overstate the evidence.
+- **Consequences:** Formal RAG/SLM evaluation, serving, unified incident flow, and automated remediation remain future work.
+
 ## Phase 9 decisions
 
 ### D-009-001 — Retrieval operates on one active corpus snapshot

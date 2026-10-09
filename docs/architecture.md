@@ -1,9 +1,10 @@
 # Planned Architecture
 
-Phase 9 preserves the operational service, incident, Kafka, ML, lifecycle, and
-knowledge-ingestion paths, then adds an offline hybrid retrieval boundary over
-the active pgvector corpus. Reranking, grounded generation, model serving,
-production observability, frontend, and cloud capabilities remain future goals.
+Phase 10 preserves the operational service, incident, Kafka, ML, lifecycle, and
+knowledge paths, then adds offline cross-encoder reranking and local grounded
+generation over the active pgvector corpus. The RAG HTTP service remains
+health-only; production model serving, formal answer evaluation, frontend,
+observability, and cloud capabilities remain future goals.
 
 ## Phase 3 Incident Management Path
 
@@ -225,6 +226,36 @@ Primary evaluation is unfiltered and uses 50 manually authored queries with
 section-level graded qrels. The package is offline; it does not alter the
 health-only FastAPI service or Compose topology.
 
+## Phase 10 Offline Diagnosis Path
+
+```text
+Phase 9 hybrid results (top 10)
+              |
+              v
+pinned MiniLM cross-encoder on CPU
+              |
+              v
+reranked top 5 evidence records [E1]...[E5]
+              |
+              v
+grounded_incident_v1 + exact llama.cpp token budget
+              |
+              v
+loopback Qwen3-4B-Q4_K_M (on demand)
+              |
+              v
+Pydantic schema + server-side citation validation
+              |
+              v
+grounded diagnosis OR insufficient_evidence
+```
+
+The reranker preserves BM25, dense, and RRF lineage. Generation uses no tools
+and cannot execute recommendations. Retrieved content is delimited as untrusted
+evidence, the GGUF must match its pinned checksum, and non-loopback inference
+origins are rejected. The server is a developer-started local process rather
+than a Compose service. Fake providers cover hosted CI without model downloads.
+
 ## Phase 2 Streaming Path
 
 ```text
@@ -284,7 +315,7 @@ not perform feature engineering, inference, or incident creation.
                    Grafana
 ```
 
-The diagram describes intended long-term logical relationships, not fully deployed Phase 9 infrastructure.
+The diagram describes intended long-term logical relationships, not fully deployed Phase 10 infrastructure.
 
 ## Service Responsibilities
 
@@ -316,12 +347,15 @@ promotion, rollback, and audit. Serving and online parity remain future work.
 ### RAG Service and offline ingestion workspace
 
 The production RAG service remains a health-only shell with no model, retrieval,
-or LLM dependency. Phase 8's separate `rag/ingestion` workspace owns the curated
+or SLM dependency. Phase 8's separate `rag/ingestion` workspace owns the curated
 runbook/postmortem corpus, validated metadata, deterministic chunks, local BGE
 embeddings, ingestion manifests, and the PostgreSQL `rag` schema. Phase 9's
 `rag/retrieval` workspace owns BM25, exact dense search, metadata filtering,
-RRF, and offline evaluation. Future phases may add reranking and grounded
-SLM-first generation without moving offline concerns into the API shell.
+RRF, and offline evaluation. Phase 10's isolated `rag/reranking` workspace owns
+the MiniLM boundary, lineage, evidence selection, and new frozen benchmark;
+`rag/generation` owns the local llama.cpp provider, prompt, token budget,
+structured diagnosis, citation validation, and abstention. None of these offline
+concerns move into the API shell.
 
 ## Future Design Constraints
 
@@ -374,9 +408,10 @@ those frozen outputs. Later phases may add serving and drift monitoring.
 
 Phase 8 implements controlled source ingestion, local dense embeddings, and
 pgvector storage. Phase 9 adds evaluated BM25, exact dense retrieval, and fixed
-reciprocal-rank fusion. Reranking, citations, grounded SLM-first generation,
-answer-quality evaluation, a retrieval API, LLM SDKs, and prompt orchestration
-remain future work.
+reciprocal-rank fusion. Phase 10 adds pinned cross-encoder reranking and an
+offline, structured, citation-validated local SLM path. Formal answer-quality
+and faithfulness evaluation, a production retrieval/diagnosis API, and remote
+LLM providers remain future work.
 
 ### Observability
 
@@ -402,4 +437,4 @@ EC2
 Docker Compose
 ```
 
-AWS resources, deployment automation, and credentials are outside Phase 9.
+AWS resources, deployment automation, and credentials are outside Phase 10.

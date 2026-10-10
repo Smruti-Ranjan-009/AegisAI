@@ -1,5 +1,74 @@
 # AegisAI Runtime Flow Journal
 
+## Phase 11 — End-to-end RAG and SLM evaluation
+
+### Before implementation
+
+Phase 10 has a real local diagnosis path and an eight-case functional smoke, but
+no independent semantic evaluator, new end-to-end gold benchmark, frozen
+generation artifacts, abstention confusion matrix, reranker generation
+ablation, uncertainty estimate, or case-level quality report. The Phase 9 and
+10 final sets have already been observed and cannot serve as a new final set.
+
+### After implementation
+
+The implementation adds an isolated installable `rag/evaluation` package and
+committed 40-case benchmark while leaving canonical retrieval, reranking,
+prompt, generation, schema, and citation behavior unchanged.
+
+```text
+benchmark case
+  -> canonical HybridRetriever
+  -> fixed RRF top 10
+  -> pinned MiniLM reranking
+  -> top-5 evidence
+  -> local pinned Qwen generation
+  -> schema/citation validation
+  -> gold-free frozen result artifact
+  -> independent offline evaluator
+       -> hybrid and reranked retrieval metrics
+       -> structural and gold citation metrics
+       -> DeBERTa NLI claim/summary support
+       -> NLI required-fact and reference-action coverage
+       -> BGE query/answer similarity proxy
+       -> abstention confusion metrics
+       -> adversarial deterministic checks
+       -> latency and paired-bootstrap summaries
+  -> JSON, Markdown, case, failure, and manual-review reports
+```
+
+The grounded evaluation-only ablation replaces MiniLM output with Hybrid RRF
+top-5 evidence, then uses the unchanged Qwen boundary. Evaluation overlays are
+inserted only after retrieval and remain delimited untrusted evidence; neither
+overlays nor gold records enter PostgreSQL or any model input other than the
+intentionally adversarial evidence record.
+
+Failure paths reject invalid output, unavailable local models, unresolved gold
+sections, missing facts, unavailable/malformed NLI output, artifact/config/
+corpus hash mismatch, final overwrite attempts, and invalid overlays. Final
+generation requires explicit confirmation and cannot be forced. Generation and
+NLI scoring remain separate so the local Qwen server can stop before DeBERTa is
+loaded.
+
+The one-time final canonical and grounded no-reranker artifacts were generated
+and then scored independently. Canonical claim support was only 22/56 and all
+three adversarial cases failed the strict combined gate; those findings remain
+reported without pipeline changes. The two expected unsupported final cases
+abstained. Final reports include paired bootstrap intervals, family/style and
+failure breakdowns, performance, determinism, and an empty 15-row human-review
+template. The local Qwen server was stopped before real DeBERTa scoring and is
+absent after validation.
+
+### Explicitly unchanged in Phase 11
+
+- The Phase 8 corpus and Phase 9/10 final artifacts, retrieval, reranking,
+  prompt, generation, schema, and citation contracts remain frozen.
+- `services/rag-service` remains health-only; no production diagnosis endpoint,
+  incident integration, tool execution, or automated remediation is added.
+- No human or LLM-as-judge evaluation, hosted model, permanent model server,
+  Compose service, schema migration, frontend, authentication, or AWS resource
+  is introduced.
+
 This journal tracks implemented request, data, and failure paths. Future phases must read it before extending cross-service behavior.
 
 ## Phase 10 — Reranking and local grounded generation

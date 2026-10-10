@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools==82.0.1", "wheel==0.46.3"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "aegis-rag-evaluation"
+version = "0.1.0"
+description = "Phase 11 offline end-to-end RAG and SLM evaluation for AegisAI"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "aegis-rag-generation==0.1.0",
+  "numpy==2.4.6",
+  "pydantic==2.11.5",
+]
+
+[project.optional-dependencies]
+models = [
+  "huggingface-hub==1.33.0",
+  "sentence-transformers==6.1.0",
+  "torch==2.14.1",
+  "transformers==5.19.0",
+]
+test = [
+  "pytest==8.4.0",
+  "ruff==0.11.13",
+]
+
+[project.scripts]
+aegis-rag-evaluate = "aegis_rag_evaluation.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: exercises Phase 11 package against disposable pgvector"]

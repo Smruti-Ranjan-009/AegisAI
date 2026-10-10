@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from aegis_rag_ingestion.config import IngestionConfig
-from aegis_rag_ingestion.database import connect
+from aegis_rag_ingestion.database import connect, require_isolated_test_database
 from aegis_rag_ingestion.embeddings import FakeEmbeddingProvider
 from aegis_rag_ingestion.ingestion import ingest
 from aegis_rag_retrieval.config import RetrievalConfig
@@ -28,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def pipeline(tmp_path_factory: pytest.TempPathFactory) -> RerankingPipeline:
     if not TEST_URL:
         pytest.skip("AEGIS_RAG_TEST_DATABASE_URL is not set")
+    require_isolated_test_database(TEST_URL)
     package = ROOT / "rag" / "ingestion"
     alembic = Config(str(package / "alembic.ini"))
     alembic.set_main_option("script_location", str(package / "migrations"))

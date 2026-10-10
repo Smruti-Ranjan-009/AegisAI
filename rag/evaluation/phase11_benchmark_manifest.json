@@ -1,0 +1,19 @@
+{
+  "benchmark_id": "e2e-rag-v1-b61d8c044a77",
+  "corpus_fingerprint": "f5a7d43a5ca429013ef4117b52a36ca68e4e4b4f4e1d16a6d13e89867f59443b",
+  "counts": {
+    "adversarial": 5,
+    "grounded": 30,
+    "insufficient": 5
+  },
+  "evaluator_hash": "caeaea29714f08e5dae58efe8de9e1098d4aadce5fe17a5e50b4c119676bd44e",
+  "gold_hash": "e54666e11aa89f80263a99fa330ac3b1d14d85018918f5bfb9920fcf406ee567",
+  "metric_definitions_hash": "bdf31859fbd6ccd0167668e145a08e1602934cf4e736264d12a44171af8fd231",
+  "overlay_hash": "97d6573b15920fb170c8b6e69fa67cc06aa627ac24d221073475206df94415ce",
+  "pipeline_hash": "277bd363ff1ebe10bc0a3642de05f88a18194ca7b349da4f93a1608abccf241f",
+  "query_hash": "79a387332732bcdbe4c33cb4b0e714d62124bd77b4e20979028fcde7c5c5a66a",
+  "splits": {
+    "development": 25,
+    "final": 15
+  }
+}

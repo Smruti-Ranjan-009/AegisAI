@@ -1,9 +1,9 @@
 # Planned Architecture
 
-Phase 10 preserves the operational service, incident, Kafka, ML, lifecycle, and
-knowledge paths, then adds offline cross-encoder reranking and local grounded
-generation over the active pgvector corpus. The RAG HTTP service remains
-health-only; production model serving, formal answer evaluation, frontend,
+Phase 11 preserves the operational service, incident, Kafka, ML, lifecycle, and
+knowledge paths and the frozen Phase 10 offline diagnosis pipeline. It adds an
+independent offline evaluation loop over write-once final artifacts. The RAG
+HTTP service remains health-only; production model serving, frontend,
 observability, and cloud capabilities remain future goals.
 
 ## Phase 3 Incident Management Path
@@ -256,6 +256,32 @@ evidence, the GGUF must match its pinned checksum, and non-loopback inference
 origins are rejected. The server is a developer-started local process rather
 than a Compose service. Fake providers cover hosted CI without model downloads.
 
+## Phase 11 Offline Quality Loop
+
+```text
+independent 40-case benchmark + curated gold
+              |
+              v
+frozen Phase 10 retrieval, reranking, and generation
+              |
+              v
+write-once gold-free final generation artifacts
+              |
+              +--> retrieval and citation metrics
+              +--> pinned DeBERTa NLI support/completeness
+              +--> BGE query/answer relevance proxy
+              +--> abstention and adversarial checks
+              +--> latency, determinism, and resource reports
+              |
+              v
+ignored JSON/Markdown/CSV reports + empty manual-review fields
+```
+
+Gold data is evaluator-only. Adversarial overlays are injected after retrieval
+as delimited untrusted evidence and never enter the corpus. Hosted CI validates
+contracts with deterministic fakes and downloads no models. See
+[`rag-evaluation.md`](rag-evaluation.md) for measured results and limitations.
+
 ## Phase 2 Streaming Path
 
 ```text
@@ -315,7 +341,7 @@ not perform feature engineering, inference, or incident creation.
                    Grafana
 ```
 
-The diagram describes intended long-term logical relationships, not fully deployed Phase 10 infrastructure.
+The diagram describes intended long-term logical relationships, not fully deployed Phase 11 infrastructure.
 
 ## Service Responsibilities
 
@@ -355,7 +381,10 @@ RRF, and offline evaluation. Phase 10's isolated `rag/reranking` workspace owns
 the MiniLM boundary, lineage, evidence selection, and new frozen benchmark;
 `rag/generation` owns the local llama.cpp provider, prompt, token budget,
 structured diagnosis, citation validation, and abstention. None of these offline
-concerns move into the API shell.
+concerns move into the API shell. Phase 11's isolated `rag/evaluation`
+workspace owns the independent benchmark, frozen configuration identity,
+write-once result artifacts, automated quality metrics, ablation, uncertainty,
+failure analysis, and empty manual-review template.
 
 ## Future Design Constraints
 
@@ -409,9 +438,10 @@ those frozen outputs. Later phases may add serving and drift monitoring.
 Phase 8 implements controlled source ingestion, local dense embeddings, and
 pgvector storage. Phase 9 adds evaluated BM25, exact dense retrieval, and fixed
 reciprocal-rank fusion. Phase 10 adds pinned cross-encoder reranking and an
-offline, structured, citation-validated local SLM path. Formal answer-quality
-and faithfulness evaluation, a production retrieval/diagnosis API, and remote
-LLM providers remain future work.
+offline, structured, citation-validated local SLM path. Phase 11 adds formal
+offline answer-quality and faithfulness proxies without tuning that path. A
+production retrieval/diagnosis API, human evaluation, and remote LLM providers
+remain future work.
 
 ### Observability
 
@@ -437,4 +467,4 @@ EC2
 Docker Compose
 ```
 
-AWS resources, deployment automation, and credentials are outside Phase 10.
+AWS resources, deployment automation, and credentials are outside Phase 11.

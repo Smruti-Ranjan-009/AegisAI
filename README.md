@@ -2,15 +2,15 @@
 
 AI-powered incident intelligence platform combining ML-based anomaly detection, hybrid RAG, and event-driven microservices to diagnose distributed-system failures and generate grounded remediation recommendations.
 
-> **Current status: Phase 10 — Cross-Encoder Reranking and Local Grounded Generation**
+> **Current status: Phase 11 — End-to-End RAG and SLM Evaluation**
 
 ## Overview
 
-AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 10 adds pinned CPU cross-encoder reranking and structured, citation-validated generation through an on-demand local quantized SLM. The production RAG API remains health-only.
+AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 11 adds a frozen, independently scored end-to-end benchmark around the Phase 10 local RAG and SLM path. The production RAG API remains health-only.
 
 ## Problem Statement
 
-Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 10 provides a local, advisory offline diagnosis path with strict evidence and abstention contracts; it does not automate remediation or expose a production endpoint.
+Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 11 measures the local advisory path's retrieval context, citations, semantic support, completeness, abstention, adversarial behavior, latency, and determinism without tuning it or exposing a production endpoint.
 
 ## Long-Term Architecture
 
@@ -49,13 +49,16 @@ Each Python service owns its dependencies; there is intentionally no root `requi
 
 ## Current Implementation Status
 
-Phase 10 includes all Phase 0–9 capabilities plus isolated `rag/reranking` and
-`rag/generation` packages. A pinned MiniLM cross-encoder reranks ten hybrid
+Phase 11 includes all Phase 0–10 capabilities plus an isolated
+`rag/evaluation` package and an independent 40-case benchmark. A pinned MiniLM cross-encoder reranks ten hybrid
 candidates into five evidence records. An on-demand loopback llama.cpp server
 hosts a checksum-verified Qwen3 4B Q4_K_M model and returns a strict structured
 diagnosis whose citations are independently validated and reconstructed from
 the evidence map. Python Alembic continues to own only the `rag` schema; Spring
-Flyway remains unchanged.
+Flyway remains unchanged. Phase 11 freezes the pipeline and scores write-once
+final artifacts with pinned DeBERTa NLI and BGE-based evaluators. The measured
+results and limitations are documented in
+[docs/rag-evaluation.md](docs/rag-evaluation.md).
 
 The implemented offline path is: telemetry → anomaly detection → abnormal
 context aggregation → five-class incident prediction → MLflow tracking → model
@@ -65,8 +68,8 @@ measured results, and limitations are in
 [docs/incident-classification.md](docs/incident-classification.md); Phase 7 is in
 [docs/model-lifecycle.md](docs/model-lifecycle.md).
 
-Phase 10 does **not** include a production diagnosis API, permanent model
-server, formal generation-quality evaluation, automated remediation,
+Phase 11 does **not** include a production diagnosis API, permanent model
+server, human evaluation, automated remediation,
 Kafka-to-incident creation, Redis, AWS deployment, production observability,
 authentication, RBAC, or a frontend. The production `rag-service` and
 `ml-service` remain health-only.
@@ -274,6 +277,25 @@ functional smoke results, security model, and resource measurements are in
 [docs/reranking-and-grounded-generation.md](docs/reranking-and-grounded-generation.md).
 The llama.cpp server is on-demand, loopback-only, and not part of Compose.
 
+## End-to-End RAG Evaluation
+
+Install the Phase 11 package after the Phase 8–10 packages. Hosted CI uses
+deterministic fake providers; real local scoring uses cached, checksum-pinned
+models and writes generated artifacts only under ignored `.runtime/`.
+
+```powershell
+conda activate aegis
+python -m pip install -e ".\rag\evaluation[test,models]"
+python -m aegis_rag_evaluation validate --json
+python -m pytest rag\evaluation\tests -q --basetemp=.runtime\pytest-phase11
+python -m ruff check rag\evaluation
+```
+
+See [docs/rag-evaluation.md](docs/rag-evaluation.md) for the frozen pipeline,
+benchmark, metric definitions, exact final results, ablation, reproduction
+commands, security boundaries, and limitations. Phase 11 reports weak results
+honestly and does not tune the Phase 10 system.
+
 ## Kafka Telemetry Pipeline
 
 Install the telemetry-service dependencies, then start Kafka, deterministic
@@ -474,8 +496,9 @@ Invoke-RestMethod http://localhost:8003/health
 8. Phase 7: MLflow experiment tracking and model lifecycle (complete)
 9. Phase 8: RAG ingestion and vector knowledge base (complete)
 10. Phase 9: hybrid BM25 + dense + RRF retrieval (complete)
-11. Phase 10: cross-encoder reranking and local grounded generation (current)
-12. Phase 11 and later: formal RAG evaluation, model serving, frontend, production observability, CI/CD, and AWS delivery
+11. Phase 10: cross-encoder reranking and local grounded generation (complete)
+12. Phase 11: end-to-end RAG and SLM evaluation (current)
+13. Phase 12 and later: model serving, frontend, production observability, CI/CD, and AWS delivery
 
 Each later capability will be introduced as a separate scoped phase.
 
@@ -493,5 +516,5 @@ Each later capability will be introduced as a separate scoped phase.
 ## Future Deployment Strategy
 
 The planned portfolio deployment path is GitHub Actions to AWS IAM OIDC,
-Amazon ECR, an EC2 host, and Docker Compose. Phase 10 contains no AWS resources,
+Amazon ECR, an EC2 host, and Docker Compose. Phase 11 contains no AWS resources,
 deployment workflows, credentials, or production infrastructure.

@@ -1,5 +1,77 @@
 # AegisAI Feature and Bug Journal
 
+## Phase 11 — End-to-end RAG and SLM evaluation
+
+| ID | Status | Feature | Verification target |
+|---|---|---|---|
+| F-011-001 | DONE | Frozen Phase 10 pipeline contract and independent 40-case benchmark with curated gold | Canonical hash, exact composition/split/balance, section resolution, and leakage checks pass |
+| F-011-002 | DONE | Independent pinned DeBERTa NLI, citation, completeness, relevance, abstention, adversarial, and retrieval evaluators | Fake-backed unit metrics plus real CPU evaluator verification pass |
+| F-011-003 | DONE | Two-stage canonical and grounded no-reranker runners with final write-once artifacts | Development regeneration and final/hash/fingerprint guards pass |
+| F-011-004 | DONE | Deterministic bootstrap, case/failure/performance reports, and empty manual-review template | Development/final reports contain denominators, uncertainty, breakdowns, and no human-evaluation claim |
+| F-011-005 | DONE | Phase 11 documentation, fake-only CI, safety guard, and full regression | CI/YAML, isolated DB, all prior tests, Docker/Compose health, Ruff, and Git hygiene pass |
+
+### Phase 11 working history
+
+- **Scope:** Evaluate the frozen Phase 10 local pipeline only; no incident
+  integration, production serving, tuning, automated remediation, or Phase 12.
+- **Audit:** Read all three journals, the Phase 8–10 packages, historical
+  benchmark assets, controlled corpus, Phase 10 runtime smoke, CI, and ignore
+  rules before implementation. The worktree began clean at `ac1a7fd`.
+- **Evaluator preflight:** The official preferred DeBERTa revision loaded and
+  inferred on CPU under Python 3.12.14. Its safetensors SHA-256 matched and its
+  contradiction/entailment/neutral mapping and 512-token limit were verified.
+- **Implementation:** The benchmark, frozen configuration, provider seams,
+  guarded generation artifacts, independent scoring, bootstrap analysis,
+  reports, CI job, documentation, and destructive-database guard are complete.
+- **Final evaluation:** Canonical and grounded no-reranker final generation ran
+  once, then the pinned real NLI and BGE evaluators scored only those frozen
+  artifacts. Weak results were recorded without changing the Phase 10 system.
+- **Validation:** All Phase 0–11 regression suites, Ruff, workflow/Compose
+  parsing, six image builds, full Compose health, and clean non-volume shutdown
+  passed. Hosted GitHub Actions was not run locally.
+
+## Phase 11 bugs and failed attempts
+
+| ID | Status | Finding | Resolution |
+|---|---|---|---|
+| B-011-001 | FIXED | The first pinned DeBERTa weight request was blocked by the managed sandbox's socket policy, so compatibility could not be established from the empty local cache. | Re-ran the same official-revision download with scoped network approval into ignored `.runtime/rag/huggingface/nli`, verified the exact weight hash, and completed real CPU inference without changing the model choice. |
+| B-011-002 | FIXED | Phase 8–10 destructive PostgreSQL integration fixtures accepted any `AEGIS_RAG_TEST_DATABASE_URL`; Phase 10 history records an accidental run against development `aegisai`. | Added a shared fail-closed database-name guard, covered accepted/rejected URLs, and invoked it before every destructive ingestion, retrieval, and reranking fixture. All database-backed regressions used `aegis_rag_test`; the development corpus retained its exact frozen fingerprint. |
+| B-011-003 | FIXED | The first local editable evaluation-package install invoked isolated build dependency resolution, which the managed network sandbox blocked even though the exact build tools were already installed. | Re-ran the local editable install with `--no-build-isolation --no-deps`; the package installed without changing dependency versions or reaching an external index. |
+| B-011-004 | FIXED | The first benchmark validation rejected three legitimate atomic actions because an initial heuristic required at least four whitespace-delimited words. | Replaced the unjustified four-word rule with a minimal three-word/non-multiline sanity check; every composition, split, balance, section, direct-evidence, and non-empty-gold invariant remains enforced. All 26 Phase 11 tests then passed. |
+| B-011-005 | FIXED | A post-final overwrite smoke revealed that the final write-once check ran only when persisting the completed batch, so an already-frozen split could wastefully begin duplicate generation before the write failed. | Terminated the accidental duplicate process before completion, verified the original final artifact timestamp/size were unchanged, moved confirmation/existence checks ahead of all pipeline access, retained the write-time defense, and added a pre-pipeline regression test. No Phase 10 behavior or final result changed. |
+| B-011-006 | FIXED | Pre-scoring review found that a schema/generation failure would be omitted from the adversarial denominator and would also hide otherwise valid retrieval measurements. | Classify validation failures as `schema_failure`, count every adversarial case as pass or fail, retain its deterministic failure reason, and calculate grounded retrieval metrics before generation-outcome handling. Added a regression test before any real NLI score artifact was created. |
+| B-011-007 | FIXED | The first score report combined NLI and BGE work into total evaluation latency and did not aggregate the already-recorded summary-support proxies, which made the required evaluator-performance and summary-support views incomplete. | Added provider-level NLI pair/time counters, explicit claim/fact/action/truncation counts, NLI-only pairs-per-second, and aggregate summary-support-proxy counts/rate. Frozen generation artifacts and metric classifications were unchanged. |
+
+## Phase 11 measured verification
+
+- Benchmark `e2e-rag-v1-b61d8c044a77`: 40 independent cases with the frozen
+  25/15 development/final split; every committed query, gold, overlay,
+  evaluator, metric-definition, pipeline, and corpus hash revalidated.
+- The write-once final canonical run generated 15 cases in 268.148 seconds.
+  NLI supported 22/56 claims (39.29%); required-fact coverage was 10/22
+  (45.45%); reference-action coverage was 4/22 (18.18%); gold citation
+  precision/recall was 48.48%/72.73%. These weak results were not tuned.
+- On ten ordinary grounded final cases, Hybrid RRF NDCG@5 was 0.8220 and
+  reranked NDCG@5 was 0.7984. The ten-case no-reranker ablation supported
+  26/51 claims (50.98%); every paired 95% bootstrap interval was reported and
+  none established a reliable reranker benefit.
+- Both final insufficient-evidence cases abstained and all ordinary grounded
+  cases answered. All three adversarial cases failed the strict all-criteria
+  gate, so Phase 11 makes no prompt-injection robustness claim.
+- Real NLI scoring processed 111 pairs at 12.94 pairs/second with zero
+  truncations. Five duplicated generation checks preserved retrieval,
+  reranking, and evidence IDs in 5/5 cases, but exact structured output in only
+  2/5; seeded local generation is not byte-deterministic.
+- Automated regression: evaluation 28, generation 23, reranking 15, retrieval
+  21, ingestion 29, lifecycle 26, classification 21, anomaly detection 23,
+  feature engineering 29, telemetry lab 17, telemetry/ML/RAG services 17/1/1,
+  Java/Testcontainers 37, and Kafka integration 2 all passed.
+- Ruff passed every Python scope. The workflow parsed with 14 jobs and retained
+  the fake-only evaluation job; Compose configuration parsed; all six project
+  images built; the complete stack and four HTTP health endpoints passed. The
+  development corpus remained 15 documents/65 chunks at fingerprint
+  `f5a7d43a...943b`; containers and the network were removed without `-v`.
+
 Statuses: `PLANNED`, `IN PROGRESS`, `DONE`, `BLOCKED`, `DEFERRED`.
 
 ## Phase 10 — Reranking and local grounded generation

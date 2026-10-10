@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from aegis_rag_ingestion.config import IngestionConfig
-from aegis_rag_ingestion.database import connect
+from aegis_rag_ingestion.database import connect, require_isolated_test_database
 from aegis_rag_ingestion.embeddings import FakeEmbeddingProvider
 from aegis_rag_ingestion.ingestion import ingest
 from alembic import command
@@ -25,6 +25,7 @@ ROOT = Path(__file__).resolve().parents[3]
 @pytest.fixture(scope="module")
 def retriever(tmp_path_factory: pytest.TempPathFactory) -> HybridRetriever:
     assert TEST_URL is not None
+    require_isolated_test_database(TEST_URL)
     package_root = ROOT / "rag" / "ingestion"
     alembic = Config(str(package_root / "alembic.ini"))
     alembic.set_main_option("script_location", str(package_root / "migrations"))

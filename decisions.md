@@ -1,5 +1,63 @@
 # AegisAI Engineering Decisions
 
+## Phase 11 decisions
+
+### D-011-001 — Freeze Phase 10 before measuring it
+
+- **Date:** 2026-10-10
+- **Status:** Accepted
+- **Decision:** Phase 11 evaluates the exact Phase 10 corpus, BGE embedding, BM25, RRF, MiniLM reranker, five-item evidence pack, `grounded_incident_v1` prompt, Qwen3-4B Q4_K_M model, llama.cpp runtime, generation parameters, response schema, and citation validation. A committed `phase11_pipeline_config.json` records those values and its canonical SHA-256 participates in the benchmark identity. Weak evaluation results are reported, not used to tune this pipeline.
+- **Rationale:** Freezing before final benchmark execution prevents evaluation feedback from becoming an unreported optimization loop.
+- **Consequences:** Only a documented implementation defect discovered before the final run may change behavior and require a re-freeze. No quality-driven change is permitted after final generation begins.
+
+### D-011-002 — Use a new balanced, evaluator-only benchmark
+
+- **Date:** 2026-10-10
+- **Status:** Accepted
+- **Decision:** Create 40 new cases: 30 grounded, five insufficient-evidence, and five adversarial; freeze 25 development and 15 final cases. Grounded cases are balanced across five incident families and five query styles, with two of every family and style in the final grounded set. Gold sections, atomic required facts, and acceptable actions are curated directly from the 15-document corpus rather than retrieval output. Phase 9 and 10 final queries remain historical only.
+- **Rationale:** A genuinely new split preserves the meaning of final evaluation and permits interpretable family/style analysis.
+- **Consequences:** Gold labels are evaluator-only and never reach retrieval, reranking, prompts, or generation. Evaluation overlays are applied after retrieval and never ingested.
+
+### D-011-003 — Use pinned local DeBERTa NLI as an explicit proxy
+
+- **Date:** 2026-10-10
+- **Status:** Accepted
+- **Decision:** Semantic support uses `cross-encoder/nli-deberta-v3-small` revision `fa2804872c3b4bd748f38c0185cc85775361e735`, official `model.safetensors` SHA-256 `ebc79588dd73ccfb6a3f6078519cfbf512c5305384c5ea1845bc71cd32216e86`, on CPU. The verified label order is contradiction `0`, entailment `1`, neutral `2`. Entailment is the only supported label; probabilities remain diagnostic. Ordered multi-citation premises use tokenizer pair truncation at 512 tokens and record truncation metadata.
+- **Rationale:** A separate local model avoids Qwen judging itself while remaining reproducible and offline after setup.
+- **Consequences:** Reports call every semantic result an NLI proxy, preserve contradiction separately from neutral, and make no human-verified faithfulness claim. Hosted CI uses a deterministic fake provider and downloads no model.
+
+### D-011-004 — Keep metrics decomposed and section-stable
+
+- **Date:** 2026-10-10
+- **Status:** Accepted
+- **Decision:** Report retrieval/reranking, structural citations, gold citation precision/recall, NLI claim support, NLI expected-fact coverage, reference-action coverage, BGE query/answer cosine similarity, abstention, adversarial robustness, and latency separately. Citation relevance compares stable `(source_path, heading_path)` pairs and reports both grade 1+2 and direct grade-2 views. Summary support is a proxy over the ordered union of validated cited evidence.
+- **Rationale:** These components fail for different reasons and cannot be represented honestly by one aggregate score.
+- **Consequences:** Every rate includes counts/denominators. Action coverage is secondary, and semantic similarity has no tuned pass threshold.
+
+### D-011-005 — Separate frozen generation from scoring
+
+- **Date:** 2026-10-10
+- **Status:** Accepted
+- **Decision:** Generation writes self-identifying artifacts containing benchmark, corpus, pipeline, model, retrieval/reranking/evidence, structured output, and timing lineage without gold data. Scoring loads those frozen artifacts later and never regenerates. Development artifacts may be atomically replaced; each final canonical and final grounded no-reranker artifact is write-once behind `--confirm-final`, with no force option.
+- **Rationale:** The two-stage design prevents evaluator leakage, supports memory-constrained local execution, and makes final results auditable.
+- **Consequences:** Hash or fingerprint mismatches fail closed. Qwen may be stopped before the NLI model is loaded.
+
+### D-011-006 — Measure only the grounded no-reranker ablation
+
+- **Date:** 2026-10-10
+- **Status:** Accepted
+- **Decision:** Compare canonical Hybrid RRF → MiniLM → Qwen with evaluation-only Hybrid RRF top-5 → Qwen on grounded cases. Use fixed-seed 10,000-resample paired bootstrap intervals for matched final deltas. Do not add a no-RAG Qwen baseline or an LLM-as-judge.
+- **Rationale:** This isolates the reranker's end-to-end effect without encouraging ungrounded operational answers or opaque self-evaluation.
+- **Consequences:** Small-sample intervals are descriptive, and lack of a decisive gain is reported without tuning.
+
+### D-011-007 — Treat evaluation inputs and integration databases as safety boundaries
+
+- **Date:** 2026-10-10
+- **Status:** Accepted
+- **Decision:** Adversarial content uses fake sentinels, stays inside delimited evidence records, and cannot enter PostgreSQL. All destructive RAG integration fixtures must reject the development `aegisai` database even when an environment variable is accidentally set; CI uses only `aegis_rag_test` and fake model providers.
+- **Rationale:** Phase 10 exposed the cost of relying on operator convention for destructive fixtures. Evaluation must also prove that gold and malicious overlays remain outside production data and model authority.
+- **Consequences:** The database guard is a safety correction, not a Phase 10 quality change. Existing CI coverage remains intact and Phase 11 adds a separate fake-backed job.
+
 This journal records implementation decisions as they are made. Future phases must read it before changing established behavior.
 
 ## Phase 10 decisions

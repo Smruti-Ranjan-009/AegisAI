@@ -750,3 +750,24 @@ bounded 422, and Java recorded `FAILED_VALIDATION`. It did not return a false
 success or retry generation. The ignored validation report is
 `.runtime/phase12-real-validation.json`; Phase 11 write-once final artifacts were
 read/validated only and never regenerated.
+
+### Phase 12 hosted CI package wiring
+
+```text
+python-services (rag-service) / unified-intelligence
+  -> install services/rag-service/requirements.txt (psycopg 3.3.6)
+  -> editable install rag/ingestion
+  -> editable install rag/retrieval     (depends on ingestion)
+  -> editable install rag/reranking     (depends on retrieval)
+  -> editable install rag/generation    (depends on reranking)
+  -> import app.main
+  -> run deterministic fake-provider RAG service tests
+```
+
+The hosted test environment installs the same repository-local dependency graph
+declared by the Phase 8–10 package metadata. Docker retains its existing explicit
+source-copy layout and import smoke; runtime provider behavior is unchanged.
+The matrix pip cache remains keyed by the service requirements file: editable
+repository packages are installed on every run, so correctness does not depend
+on cached local-package metadata, and adding conditional cache inputs would
+complicate the matrix for no functional benefit.

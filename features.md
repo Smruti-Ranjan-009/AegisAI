@@ -743,6 +743,7 @@ Statuses: `PLANNED`, `IN PROGRESS`, `DONE`, `BLOCKED`, `DEFERRED`.
 | B-012-007 | FIXED | The developer machine exports `DEBUG=release`, which Spring relaxed binding interpreted as debug mode; framework HTTP converters then logged full request DTOs, including feature arrays, despite Phase 12's bounded operational-logging policy. | Pinned Spring HTTP client and MVC converter categories to INFO so correlation/state logs remain useful without request/response bodies. No application behavior or diagnostic result changed. |
 | B-012-008 | FIXED | The full 42-test Java regression passed all behavior assertions but one historical persistence test still expected exactly six successful Flyway migrations, so it failed after the intentional V7 Phase 12 migration. | Updated the migration assertion to seven, renamed it to cover all migrations, and made cleanup delete intelligence runs before their parent incidents. The V7 migration itself was not changed. |
 | B-012-009 | FIXED | The first full Compose health run built all six images, but the fake RAG container exited during import because its image copied Phase 9 source without installing the declared `rank-bm25` runtime dependency. | Added the existing pinned `rank-bm25` and `pgvector` runtime dependencies to the service image requirements and a build-time `import app.main` smoke. No model package, retrieval setting, or runtime result changed. |
+| B-012-010 | FIXED | Hosted GitHub Actions run `38128614668` installed `services/rag-service/requirements.txt` but omitted the repository-local Phase 8–10 package chain. Both `python-services (rag-service)` and `unified-intelligence` therefore failed during test collection when `app/main.py` imported `aegis_rag_generation.errors`. The service also pinned psycopg 3.3.3 while ingestion/retrieval require 3.3.6. Local Phase 12 validation had passed because its populated development environment already contained those packages. | Install editable `ingestion -> retrieval -> reranking -> generation` packages in dependency order in both affected jobs and align the service psycopg pin to 3.3.6. Application imports, providers, tests, and frozen RAG behavior remain unchanged. The runner/Node action warnings were non-causal and are deferred as future CI maintenance rather than mixed into this repair. |
 
 ## Phase 12 working history and measured verification
 
@@ -780,3 +781,17 @@ Statuses: `PLANNED`, `IN PROGRESS`, `DONE`, `BLOCKED`, `DEFERRED`.
   fake-only `unified-intelligence` job plus `workflow_dispatch`; all six images
   built; PostgreSQL, Kafka, telemetry service/worker, ML, RAG, and incident
   services all reached healthy state. Hosted GitHub Actions was not run.
+- **Hosted CI repair verification:** Run `38128614668` later confirmed only
+  `python-services (rag-service)` and `unified-intelligence` failed, both at the
+  missing `aegis_rag_generation` collection import; every other runnable job
+  succeeded and `docker-images` was dependency-skipped. After B-012-010, a
+  fresh Python 3.12 environment installed the service requirements and the
+  ordered Phase 8–10 chain, reported psycopg 3.3.6 with no broken requirements,
+  passed RAG 6/6 and unified ML/RAG 9/9 + 6/6 tests, and passed Ruff. The
+  focused Phase 12 Java integration passed 5/5; standalone ingestion,
+  retrieval, reranking, and generation regressions passed 29/29, 21/21,
+  15/15, and 23/23 respectively with clean Ruff scopes. The Linux RAG image
+  rebuilt through its `import app.main` smoke, and a fake-provider container
+  imported the complete package chain plus `app.main` without external models
+  or PostgreSQL. The hosted workflow has not been rerun because these changes
+  remain uncommitted.

@@ -46,6 +46,13 @@ jobs:
         run: |
           python -m pip install -e "../../ml/anomaly_detection"
           python -m pip install -e "../../ml/incident_classification"
+      - name: Install frozen RAG packages for rag-service contract tests
+        if: matrix.service == 'rag-service'
+        run: |
+          python -m pip install -e "../../rag/ingestion"
+          python -m pip install -e "../../rag/retrieval"
+          python -m pip install -e "../../rag/reranking"
+          python -m pip install -e "../../rag/generation"
       - name: Run tests
         run: python -m pytest
       - name: Run Ruff
@@ -400,6 +407,10 @@ jobs:
           python -m pip install -r services/rag-service/requirements.txt
           python -m pip install -e ml/anomaly_detection
           python -m pip install -e ml/incident_classification
+          python -m pip install -e rag/ingestion
+          python -m pip install -e rag/retrieval
+          python -m pip install -e rag/reranking
+          python -m pip install -e rag/generation
       - name: Test ML and RAG service contracts with fake providers
         env:
           AEGIS_ML_MODEL_SOURCE: fake

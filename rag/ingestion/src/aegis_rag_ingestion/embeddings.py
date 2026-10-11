@@ -73,6 +73,7 @@ class SentenceTransformerProvider:
         device: str = "cpu",
         batch_size: int = 32,
         expected_dimension: int = 384,
+        local_files_only: bool = False,
     ) -> None:
         try:
             from sentence_transformers import SentenceTransformer
@@ -80,7 +81,12 @@ class SentenceTransformerProvider:
             raise EmbeddingValidationError(
                 "real embeddings require: pip install -e 'rag/ingestion[embeddings]'"
             ) from exc
-        self._model: Any = SentenceTransformer(model_id, revision=revision, device=device)
+        self._model: Any = SentenceTransformer(
+            model_id,
+            revision=revision,
+            device=device,
+            local_files_only=local_files_only,
+        )
         self._model_id = model_id
         self._model_revision = revision
         self._batch_size = batch_size

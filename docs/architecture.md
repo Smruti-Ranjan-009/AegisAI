@@ -1,10 +1,43 @@
-# Planned Architecture
+# Implemented and planned architecture
 
-Phase 11 preserves the operational service, incident, Kafka, ML, lifecycle, and
-knowledge paths and the frozen Phase 10 offline diagnosis pipeline. It adds an
-independent offline evaluation loop over write-once final artifacts. The RAG
-HTTP service remains health-only; production model serving, frontend,
-observability, and cloud capabilities remain future goals.
+Phase 12 preserves every prior offline path and adds the implemented synchronous
+runtime below. Frontend, autonomous remediation, production observability, and
+cloud capabilities remain future goals.
+
+## Phase 12 Unified Runtime
+
+```text
+Telemetry / Phase 4-compatible Feature Window
+        |
+        v
+     ML Service
+        +-- Frozen Anomaly Detector
+        +-- Frozen Incident Classifier (anomaly only)
+                    |
+                    v
+       Java Incident Service
+        +-- idempotency + correlation
+        +-- orchestration + explicit states
+                    |
+                    v
+        RAG Service
+        +-- BM25 + Dense + RRF
+        +-- MiniLM reranker
+        +-- top-five evidence
+        +-- local Qwen3-4B Q4_K_M
+        +-- server citation validation
+                    |
+                    v
+ Incident Intelligence Persistence + Timeline
+                    |
+                    v
+             Human Review
+```
+
+Spring Flyway owns the intelligence-run table; Python Alembic still owns only
+the `rag` schema. `X-Correlation-ID` follows the synchronous HTTP path. No
+predicted incident type is a retrieval hard filter, no online NLI evaluator is
+present, and no recommendation is executed.
 
 ## Phase 3 Incident Management Path
 
@@ -341,7 +374,7 @@ not perform feature engineering, inference, or incident creation.
                    Grafana
 ```
 
-The diagram describes intended long-term logical relationships, not fully deployed Phase 11 infrastructure.
+The diagram describes intended long-term logical relationships, not fully deployed Phase 12 infrastructure.
 
 ## Service Responsibilities
 
@@ -359,8 +392,8 @@ The entry point for future logs, metrics, traces, preprocessing, and feature gen
 
 ### ML Service and offline ML workspace
 
-The production ML service remains a health-only shell with no model dependency or
-inference endpoint. The separate `ml/feature_engineering` workspace owns offline
+The ML service now exposes liveness, dependency-aware model readiness, safe model
+metadata, and strict versioned inference over the frozen feature order. The separate `ml/feature_engineering` workspace owns offline
 OTLP normalization and Parquet contracts. Phase 5's `ml/anomaly_detection`
 workspace owns the readiness gate, run split, fitted preprocessing, unsupervised
 detectors, evaluation, and ignored artifacts. Phase 6's
@@ -368,23 +401,27 @@ detectors, evaluation, and ignored artifacts. Phase 6's
 service-independent run aggregation, supervised cross-validation, evaluation,
 and ignored classifier artifacts. Phase 7's isolated `ml/model_lifecycle`
 workspace owns local MLflow tracking, registry aliases, integrity verification,
-promotion, rollback, and audit. Serving and online parity remain future work.
+promotion, rollback, and audit. Runtime resolution supports deterministic fakes,
+trusted frozen artifact URIs, or those same Phase 7 champion identities; it never
+trains or silently falls back.
 
 ### RAG Service and offline ingestion workspace
 
-The production RAG service remains a health-only shell with no model, retrieval,
-or SLM dependency. Phase 8's separate `rag/ingestion` workspace owns the curated
+The RAG service now exposes liveness, dependency-aware readiness, and a structured
+diagnosis API composed from the existing retrieval, reranking, and generation
+packages. Phase 8's separate `rag/ingestion` workspace owns the curated
 runbook/postmortem corpus, validated metadata, deterministic chunks, local BGE
 embeddings, ingestion manifests, and the PostgreSQL `rag` schema. Phase 9's
 `rag/retrieval` workspace owns BM25, exact dense search, metadata filtering,
 RRF, and offline evaluation. Phase 10's isolated `rag/reranking` workspace owns
 the MiniLM boundary, lineage, evidence selection, and new frozen benchmark;
 `rag/generation` owns the local llama.cpp provider, prompt, token budget,
-structured diagnosis, citation validation, and abstention. None of these offline
-concerns move into the API shell. Phase 11's isolated `rag/evaluation`
+structured diagnosis, citation validation, and abstention. These packages are
+composed rather than duplicated by the API. Phase 11's isolated `rag/evaluation`
 workspace owns the independent benchmark, frozen configuration identity,
 write-once result artifacts, automated quality metrics, ablation, uncertainty,
-failure analysis, and empty manual-review template.
+failure analysis, and empty manual-review template. Phase 12 does not alter those
+frozen settings or write-once artifacts.
 
 ## Future Design Constraints
 
@@ -439,9 +476,10 @@ Phase 8 implements controlled source ingestion, local dense embeddings, and
 pgvector storage. Phase 9 adds evaluated BM25, exact dense retrieval, and fixed
 reciprocal-rank fusion. Phase 10 adds pinned cross-encoder reranking and an
 offline, structured, citation-validated local SLM path. Phase 11 adds formal
-offline answer-quality and faithfulness proxies without tuning that path. A
-production retrieval/diagnosis API, human evaluation, and remote LLM providers
-remain future work.
+offline answer-quality and faithfulness proxies without tuning that path. Phase
+12 adds the local structured diagnosis API and composes it into Java-owned
+incident orchestration. Production authentication/scaling, human evaluation,
+and remote LLM providers remain future work.
 
 ### Observability
 
@@ -467,4 +505,4 @@ EC2
 Docker Compose
 ```
 
-AWS resources, deployment automation, and credentials are outside Phase 11.
+AWS resources, deployment automation, and credentials are outside Phase 12.

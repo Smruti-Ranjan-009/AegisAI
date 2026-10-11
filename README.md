@@ -2,15 +2,15 @@
 
 AI-powered incident intelligence platform combining ML-based anomaly detection, hybrid RAG, and event-driven microservices to diagnose distributed-system failures and generate grounded remediation recommendations.
 
-> **Current status: Phase 11 — End-to-End RAG and SLM Evaluation**
+> **Current status: Phase 12 — Unified Incident Intelligence Flow**
 
 ## Overview
 
-AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 11 adds a frozen, independently scored end-to-end benchmark around the Phase 10 local RAG and SLM path. The production RAG API remains health-only.
+AegisAI is a production-style portfolio project for exploring incident intelligence across Java, Python, event-driven systems, machine learning, retrieval-augmented generation, observability, and cloud deployment. Phase 12 connects the frozen ML and RAG computations to Java-owned incident orchestration, idempotent persistence, lineage, and human review.
 
 ## Problem Statement
 
-Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. The long-term goal is to correlate those signals, identify abnormal behavior, organize incident response, and produce evidence-grounded remediation guidance. Phase 11 measures the local advisory path's retrieval context, citations, semantic support, completeness, abstention, adversarial behavior, latency, and determinism without tuning it or exposing a production endpoint.
+Distributed-system incidents generate fragmented logs, metrics, traces, operational knowledge, and ownership data. Phase 12 can take validated model-ready incident input through frozen anomaly detection, conditional classification, hybrid RAG, citation-validated local generation, and persisted advisory results. It does not autonomously remediate incidents.
 
 ## Long-Term Architecture
 
@@ -21,7 +21,7 @@ The planned system consists of a React dashboard, a Spring Boot incident API, th
 | Area | Implemented | Planned later |
 | --- | --- | --- |
 | Incident API | Java 17, Spring Boot 3.4, REST, Validation, Spring Data JPA, Flyway | Kafka integration, authentication, RBAC |
-| Python services | Python 3.12 FastAPI shells and telemetry worker; isolated ingestion package | RAG serving dependencies |
+| Python services | Python 3.12 FastAPI telemetry, frozen-model inference, and structured RAG diagnosis services | Production scaling and auth |
 | Dataset and ML | OpenTelemetry Demo 3.1.0 captures; protobuf OTLP normalization; PyArrow Parquet; deterministic UTC windows; frozen anomaly detection and incident classification; MLflow 3.17 tracking and alias-based registry lifecycle | Model serving and drift monitoring |
 | Event backbone | Apache Kafka 4.3.1 in single-node KRaft mode; raw, processed, and DLQ topics | Multi-node or managed production Kafka |
 | Testing and quality | JUnit, Spring Boot Test, Testcontainers PostgreSQL, pytest, Ruff, Kafka integration tests | Broader end-to-end suites |
@@ -49,6 +49,14 @@ Each Python service owns its dependencies; there is intentionally no root `requi
 
 ## Current Implementation Status
 
+Phase 12 preserves every Phase 0–11 capability and adds live, versioned ML
+inference and RAG diagnosis APIs. The Spring incident service orchestrates them,
+persists explicit result states and compact lineage through Flyway, protects
+replays with canonical request fingerprints and database uniqueness, and
+propagates correlation IDs. Every generated result remains advisory with
+mandatory human review; no recommended action is executed. See
+[docs/unified-incident-intelligence.md](docs/unified-incident-intelligence.md).
+
 Phase 11 includes all Phase 0–10 capabilities plus an isolated
 `rag/evaluation` package and an independent 40-case benchmark. A pinned MiniLM cross-encoder reranks ten hybrid
 candidates into five evidence records. An on-demand loopback llama.cpp server
@@ -68,11 +76,10 @@ measured results, and limitations are in
 [docs/incident-classification.md](docs/incident-classification.md); Phase 7 is in
 [docs/model-lifecycle.md](docs/model-lifecycle.md).
 
-Phase 11 does **not** include a production diagnosis API, permanent model
-server, human evaluation, automated remediation,
+Phase 12 does **not** include human evaluation, automated remediation,
 Kafka-to-incident creation, Redis, AWS deployment, production observability,
-authentication, RBAC, or a frontend. The production `rag-service` and
-`ml-service` remain health-only.
+authentication, RBAC, or a frontend. The local model processes are explicitly
+configured development services, not production-ready autonomous AI.
 
 The implementation journals are [decisions.md](decisions.md), [flow.md](flow.md), and [features.md](features.md). Future phases should read these before changing established behavior.
 
@@ -497,8 +504,9 @@ Invoke-RestMethod http://localhost:8003/health
 9. Phase 8: RAG ingestion and vector knowledge base (complete)
 10. Phase 9: hybrid BM25 + dense + RRF retrieval (complete)
 11. Phase 10: cross-encoder reranking and local grounded generation (complete)
-12. Phase 11: end-to-end RAG and SLM evaluation (current)
-13. Phase 12 and later: model serving, frontend, production observability, CI/CD, and AWS delivery
+12. Phase 11: end-to-end RAG and SLM evaluation (complete)
+13. Phase 12: unified incident intelligence flow (complete)
+14. Phase 13 and later: frontend, production observability, CI/CD, and AWS delivery
 
 Each later capability will be introduced as a separate scoped phase.
 
@@ -516,5 +524,5 @@ Each later capability will be introduced as a separate scoped phase.
 ## Future Deployment Strategy
 
 The planned portfolio deployment path is GitHub Actions to AWS IAM OIDC,
-Amazon ECR, an EC2 host, and Docker Compose. Phase 11 contains no AWS resources,
+Amazon ECR, an EC2 host, and Docker Compose. Phase 12 contains no AWS resources,
 deployment workflows, credentials, or production infrastructure.

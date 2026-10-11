@@ -27,3 +27,17 @@ management:
   endpoint:
     health:
       show-details: never
+
+logging:
+  level:
+    org.springframework.web.client: INFO
+    org.springframework.web.servlet.mvc.method.annotation: INFO
+
+aegis:
+  intelligence:
+    ml-base-url: ${ML_SERVICE_URL:http://localhost:8002}
+    rag-base-url: ${RAG_SERVICE_URL:http://localhost:8003}
+    ml-connect-timeout: ${ML_CONNECT_TIMEOUT:2s}
+    ml-read-timeout: ${ML_READ_TIMEOUT:15s}
+    rag-connect-timeout: ${RAG_CONNECT_TIMEOUT:2s}
+    rag-read-timeout: ${RAG_READ_TIMEOUT:330s}

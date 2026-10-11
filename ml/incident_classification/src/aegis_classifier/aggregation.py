@@ -28,16 +28,16 @@ def _sum(rows: list[ScoredWindow], name: str) -> float:
     return float(np.sum(_values(rows, name)))
 
 
-def aggregate_run(rows: list[ScoredWindow], config: AggregationConfig) -> dict[str, object]:
+def aggregate_feature_windows(
+    rows: list[ScoredWindow], config: AggregationConfig | None = None
+) -> dict[str, float]:
+    """Aggregate scored windows for online inference without a ground-truth label."""
+    config = config or AggregationConfig()
     if not rows:
         raise ClassificationError("Cannot aggregate an empty incident run.")
-    scenarios = {row.scenario for row in rows}
     run_ids = {row.run_id for row in rows}
-    if len(run_ids) != 1 or len(scenarios) != 1:
-        raise ClassificationError("Run aggregation received mixed run/scenario rows.")
-    scenario = next(iter(scenarios))
-    if scenario not in CLASS_NAMES:
-        raise ClassificationError(f"Classifier dataset cannot contain scenario {scenario!r}.")
+    if len(run_ids) != 1:
+        raise ClassificationError("Run aggregation received mixed run rows.")
     ranked = sorted(
         rows,
         key=lambda row: (
@@ -49,9 +49,7 @@ def aggregate_run(rows: list[ScoredWindow], config: AggregationConfig) -> dict[s
     )
     top = ranked[: min(config.top_k, len(ranked))]
     scores = np.asarray([row.anomaly_score for row in top], dtype=np.float64)
-    output: dict[str, object] = {
-        "run_id": next(iter(run_ids)),
-        "scenario": scenario,
+    output = {
         "anomaly_score_max": float(scores.max()),
         "anomaly_score_mean_top3": float(scores.mean()),
         "anomaly_score_min_top3": float(scores.min()),
@@ -91,10 +89,25 @@ def aggregate_run(rows: list[ScoredWindow], config: AggregationConfig) -> dict[s
             top, "telemetry_observation_count"
         ),
     }
-    numeric = [float(value) for key, value in output.items() if key not in {"run_id", "scenario"}]
-    if not np.all(np.isfinite(numeric)):
+    if not np.all(np.isfinite(list(output.values()))):
         raise ClassificationError("Run aggregation produced a non-finite feature.")
     return output
+
+
+def aggregate_run(rows: list[ScoredWindow], config: AggregationConfig) -> dict[str, object]:
+    if not rows:
+        raise ClassificationError("Cannot aggregate an empty incident run.")
+    scenarios = {row.scenario for row in rows}
+    if len(scenarios) != 1:
+        raise ClassificationError("Run aggregation received mixed run/scenario rows.")
+    scenario = next(iter(scenarios))
+    if scenario not in CLASS_NAMES:
+        raise ClassificationError(f"Classifier dataset cannot contain scenario {scenario!r}.")
+    return {
+        "run_id": rows[0].run_id,
+        "scenario": scenario,
+        **aggregate_feature_windows(rows, config),
+    }
 
 
 def aggregate_runs(

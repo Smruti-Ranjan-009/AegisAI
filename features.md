@@ -703,3 +703,80 @@ Statuses: `PLANNED`, `IN PROGRESS`, `DONE`, `BLOCKED`, `DEFERRED`.
 - Storage: PostgreSQL 18.6; pgvector 0.8.6; Alembic revision `0001_rag_vector_schema`; 15 active documents, 0 inactive documents, 65 `vector(384)` chunks. The existing incident row survived the same-major image change.
 - Phase 8 tests: 24/24 passed against the isolated `aegis_rag_test` database, including hidden/runtime/raw/binary discovery exclusions; Ruff passed. CI YAML parsed, Compose configuration resolved, and no invalid `${{ runner.temp }}` expressions remain.
 - Full regressions: Java 37; telemetry service 17; ML/RAG health services 1/1; Phase 1 lab 17; Phase 4 features 29; Phase 5 anomaly 23; Phase 6 classifier 21; Phase 7 lifecycle 26; Kafka integration 2. All passed; combined Ruff clean; all six service/worker images built; full Compose health passed and validation containers/network were removed without deleting named volumes.
+## Phase 12 — Unified incident intelligence flow
+
+### F-012-001 — Versioned ML inference service
+
+- **Status:** DONE
+- Add strict Phase-4/5-compatible window validation, frozen anomaly/classifier providers, anomaly-first sequencing, readiness, model metadata, correlation propagation, and deterministic fakes.
+
+### F-012-002 — Versioned grounded RAG diagnosis service
+
+- **Status:** DONE
+- Add structured incident context, deterministic neutral query construction, frozen Phase 9/10 pipeline reuse, safe evidence/lineage output, readiness, and deterministic fake providers.
+
+### F-012-003 — Java orchestration, persistence, and read APIs
+
+- **Status:** DONE
+- Add typed finite-timeout clients, explicit run states, canonical idempotency, database concurrency protection, JSONB lineage snapshots, incident timeline integration, correlation IDs, and list/detail APIs.
+
+### F-012-004 — Cross-service integration and failure coverage
+
+- **Status:** DONE
+- Cover grounded, anomaly-negative, insufficient-evidence, dependency failure, validation failure, replay, concurrent duplication, persistence, timeline, and real HTTP fake-provider paths without executing action text.
+
+### F-012-005 — Runtime documentation, Compose, CI, and regression evidence
+
+- **Status:** DONE
+- Wire trusted configuration, add a dedicated offline unified-intelligence CI job, document local/real startup and Phase 11 limitations, then run all Phase 4–12 and platform regressions without regenerating Phase 11 final artifacts.
+
+## Phase 12 bugs and findings
+
+| ID | Status | Finding | Resolution |
+|---|---|---|---|
+| B-012-001 | FIXED | The first Java regression reached all 37 existing tests but eight application-context setups failed because Flyway declared `request_hash` as fixed `CHAR(64)` while Hibernate correctly validated the entity mapping as `VARCHAR(64)`. No test assertion ran against a mismatched schema. | Changed the not-yet-released V7 migration column to `VARCHAR(64)`, preserving the 64-character constraint and unique idempotency index, then reran the unchanged suite. |
+| B-012-002 | FIXED | The first focused orchestration integration run completed the anomaly-negative case but grounded/abstention paths hit `LazyInitializationException` when building RAG context from the incident's affected-service collection after the repository session closed. | Added an explicit `@EntityGraph` repository query for the orchestration snapshot; external calls remain outside a long database transaction while the needed incident context is loaded atomically. |
+| B-012-003 | FIXED | The first real RAG-service provider probe stalled with negligible CPU before readiness while the pinned BGE constructor performed an avoidable remote cache check. | Added an optional `local_files_only` argument to the existing Phase 8 provider with its prior default unchanged, and set it only at the Phase 12 real-service boundary; frozen model identity and embedding behavior are unchanged. |
+| B-012-004 | FIXED | All five first real scenarios reached Java orchestration but persisted `FAILED_ML`; the strict ML API returned 422 and RAG was correctly not called. Capturing the actual Java HTTP body showed that Jackson serialized the Bean Validation helper `isValidWindow()` as an undeclared `"valid_window": true` field in every feature window. | Kept the Python `extra="forbid"` contract strict, marked the Java validation-only accessor `@JsonIgnore`, and added a real-HTTP serialization regression assertion. Feature values, frozen models, thresholds, and predictions were not changed. |
+| B-012-005 | FIXED | After B-012-004, all five real scenarios completed ML inference and reached RAG, but dense retrieval failed before generation because the service opened a plain psycopg connection and therefore could not adapt the existing NumPy query vector to pgvector. | Registered the pgvector psycopg adapter immediately after the real service connection is opened and added a unit regression test. The frozen BGE output, BM25/RRF settings, reranker, evidence depth, prompt, and Qwen configuration are unchanged. |
+| B-012-006 | FIXED | In the first post-pgvector real run, the dependency-failure case was correctly rejected by the frozen citation validator, but the uncaught `GenerationValidationError` became a generic 500 and Java persisted `FAILED_RAG` instead of the required validation-specific state. | RAG now returns a bounded 422 `RAG_VALIDATION_FAILED` detail for generation schema/citation rejection, and Java maps 422 to `FAILED_VALIDATION`. No generated text is returned, no retry was added, and the model/prompt were not changed. |
+| B-012-007 | FIXED | The developer machine exports `DEBUG=release`, which Spring relaxed binding interpreted as debug mode; framework HTTP converters then logged full request DTOs, including feature arrays, despite Phase 12's bounded operational-logging policy. | Pinned Spring HTTP client and MVC converter categories to INFO so correlation/state logs remain useful without request/response bodies. No application behavior or diagnostic result changed. |
+| B-012-008 | FIXED | The full 42-test Java regression passed all behavior assertions but one historical persistence test still expected exactly six successful Flyway migrations, so it failed after the intentional V7 Phase 12 migration. | Updated the migration assertion to seven, renamed it to cover all migrations, and made cleanup delete intelligence runs before their parent incidents. The V7 migration itself was not changed. |
+| B-012-009 | FIXED | The first full Compose health run built all six images, but the fake RAG container exited during import because its image copied Phase 9 source without installing the declared `rank-bm25` runtime dependency. | Added the existing pinned `rank-bm25` and `pgvector` runtime dependencies to the service image requirements and a build-time `import app.main` smoke. No model package, retrieval setting, or runtime result changed. |
+
+## Phase 12 working history and measured verification
+
+- **Boundary:** Phase 12 composed the frozen Phase 4–11 contracts. It did not
+  retrain or retune a model, change retrieval/reranking/generation settings,
+  regenerate Phase 11 final artifacts, add online NLI, or execute remediation.
+- **Real validation identity:** The final five-family run used fresh input IDs
+  suffixed `validation-final-20261011` and otherwise unchanged captured feature
+  windows. All five exceeded the frozen anomaly threshold and all five frozen
+  classifier predictions matched the scenario family. This is runtime smoke
+  evidence, not a new accuracy estimate.
+- **Real outcomes:** `cpu_saturation`, `memory_leak`, `service_failure`, and
+  `high_latency` completed as `GROUNDED_ADVISORY` with respectively 5, 1, 5,
+  and 5 citations. `dependency_failure` reached local Qwen, then correctly
+  completed as `FAILED_VALIDATION` because the generated citations did not
+  exactly cover claim evidence; no invalid answer was returned or persisted as
+  success and no retry was attempted.
+- **Local small-sample performance:** Across five runs, ML service p50/mean was
+  40.981/41.086 ms and total persisted orchestration p50/mean was
+  21,390.412/19,019.895 ms. Across the four grounded runs, retrieval was
+  44.621/72.090 ms, reranking 216.801/225.648 ms, generation
+  21,264.783/19,916.063 ms, and the residual orchestration plus persistence
+  14.045/35.042 ms (p50/mean). Generation dominates local latency.
+- **Phase 12 verification:** ML service 9 tests, RAG service 6 tests, Java
+  orchestration integration 5 tests, full Java/Testcontainers 42 tests, and
+  Kafka integration 2 tests passed. The real HTTP serialization test proves
+  the validation helper is absent from the strict ML request.
+- **Prior regressions:** Phase 11 evaluation 28 plus frozen-artifact validation;
+  Phase 10 generation 23 and reranking 15; Phase 9 retrieval 21; Phase 8
+  ingestion 29 against `aegis_rag_test`; Phase 7 lifecycle 26; Phase 6
+  classification 21; Phase 5 anomaly 23; Phase 4 features 29; telemetry lab 17;
+  telemetry service 17. All passed without Phase 11 final regeneration.
+- **Delivery verification:** Ruff passed across the repository; CI YAML and
+  Compose configuration parsed; the workflow retains 15 jobs and adds the
+  fake-only `unified-intelligence` job plus `workflow_dispatch`; all six images
+  built; PostgreSQL, Kafka, telemetry service/worker, ML, RAG, and incident
+  services all reached healthy state. Hosted GitHub Actions was not run.

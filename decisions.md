@@ -639,3 +639,68 @@ recomputed or tuned against the final split.
 - **Decision:** Future grounded generation should first evaluate a locally runnable small language model. Any external LLM is an optional, explicitly configured comparison path rather than the architectural default.
 - **Rationale:** An SLM-first path keeps the portfolio reproducible, cost-controlled, and privacy-aware on the documented laptop-class target while leaving room for measured comparison later.
 - **Consequences:** Phase 8 adds no inference runtime, model weights, prompt orchestration, or generation API. Model selection and quality evaluation belong to a later separately scoped phase.
+## Phase 12 decisions
+
+### D-012-001 — Keep synchronous orchestration and persistence in incident-service
+
+- **Date:** 2026-10-11
+- **Status:** Accepted
+- **Decision:** `incident-service` owns the versioned intelligence-run resource, synchronous ML-then-RAG orchestration, state transitions, timeline entries, idempotency, and persistence. `ml-service` and `rag-service` remain computation boundaries reached through typed HTTP clients. Kafka-triggered autonomous diagnosis is deferred.
+- **Rationale:** Incident lifecycle and Spring Flyway ownership already reside in Java; moving domain authority or adding a second event-driven path would create conflicting sources of truth during an application-integration phase.
+- **Consequences:** The caller receives one persisted run representation. Expensive generation is never retried automatically and no Phase 12 code consumes Kafka to diagnose incidents.
+
+### D-012-002 — Use a versioned model-ready window contract and anomaly-first gate
+
+- **Date:** 2026-10-11
+- **Status:** Accepted
+- **Decision:** ML requests use `ml_inference_v1` and carry Phase-4-compatible, Phase-5-model-ready windows with the exact frozen 46-feature ordering, required service/window metadata, and finite numeric-or-null values. Null retains the frozen median-imputation behavior; NaN and infinities are rejected. The classifier runs only when at least one window exceeds the frozen anomaly threshold.
+- **Rationale:** Online raw-telemetry transformation is not an existing service boundary, while the frozen feature builder and model contracts already define the only compatible representation. An anomaly-negative result must not manufacture a diagnosis.
+- **Consequences:** Telemetry-to-feature engineering remains upstream. A negative result becomes `NO_ANOMALY_SIGNAL`; it is model evidence, not proof of system health, and RAG is not called.
+
+### D-012-003 — Resolve only configured frozen model providers
+
+- **Date:** 2026-10-11
+- **Status:** Accepted
+- **Decision:** ML providers support deterministic `fake`, verified explicit frozen artifact directories, and Phase 7 MLflow `champion` resolution for `AegisAI-AnomalyDetector` and `AegisAI-IncidentClassifier`. There is no implicit fallback. Readiness is false when configured models cannot load, and model identities originate in the service.
+- **Rationale:** Tests must stay offline while real validation must retain the same frozen identities and lifecycle lineage without hard-wiring API handlers to pickle paths.
+- **Consequences:** Artifact loading remains trusted-local only. No model is retrained, promoted, or silently substituted.
+
+### D-012-004 — Reuse the frozen RAG pipeline through a neutral query contract
+
+- **Date:** 2026-10-11
+- **Status:** Accepted
+- **Decision:** `rag-service` owns `rag_diagnosis_v1` and deterministic `incident_query_v1`. The query identifies the classifier output as an unverified prediction, never as root-cause truth. Canonical retrieval uses no incident-type hard filter; Phase 9 retrieval, Phase 10 reranking, evidence packing, local Qwen generation, and server-side citation reconstruction remain unchanged. Phase 11 NLI remains offline-only.
+- **Rationale:** Hard filtering could hide correct evidence after a classification error. The existing citation and fail-closed generation boundary is the runtime grounding control actually evaluated in Phase 10/11.
+- **Consequences:** No qrels, gold facts, expected answers, or evaluation labels enter runtime queries. RAG readiness checks the dependencies of the selected provider; fake mode remains deterministic for CI.
+
+### D-012-005 — Persist relational run identity/state plus bounded JSON result snapshots
+
+- **Date:** 2026-10-11
+- **Status:** Accepted
+- **Decision:** Spring Flyway owns an `incident_intelligence_runs` table. Incident/run identity, canonical SHA-256 request hash, state, schema version, governance flag, correlation ID, timestamps, and optimistic version are relational; bounded versioned ML, intelligence, lineage, and timing documents are stored as JSONB snapshots. A database unique constraint on `(incident_id, request_hash)` is the concurrency authority.
+- **Rationale:** State and ownership need relational integrity and indexes, while upstream versioned result shapes are naturally retained as queryable JSON without duplicating Python schemas across many nullable columns.
+- **Consequences:** Same semantic input returns the existing row even under a duplicate race; changed input creates a new run. Random IDs, correlation headers, and attempt timestamps are excluded from the fingerprint.
+
+### D-012-006 — Make every generated result advisory and every failure explicit
+
+- **Date:** 2026-10-11
+- **Status:** Accepted
+- **Decision:** Grounded and insufficient-evidence outcomes set `requires_human_review=true`; recommended actions are inert data and are never executed. ML calls use finite connection/read timeouts of 2/15 seconds; RAG uses 2/330 seconds. ML failure stops before RAG; RAG failure retains ML output; malformed/citation-invalid RAG becomes `FAILED_VALIDATION`. No generation retry is added.
+- **Rationale:** Phase 11 measured substantial unsupported-claim, adversarial, and determinism weaknesses. Runtime integration cannot turn that baseline into an autonomous safety claim.
+- **Consequences:** The explicit states are `PENDING`, `RUNNING`, `NO_ANOMALY_SIGNAL`, `GROUNDED_ADVISORY`, `INSUFFICIENT_EVIDENCE`, `FAILED_ML`, `FAILED_RAG`, and `FAILED_VALIDATION`. Service failures never appear as successful diagnoses.
+
+### D-012-007 — Keep validation helpers outside strict wire contracts
+
+- **Date:** 2026-10-11
+- **Status:** Accepted
+- **Decision:** Python service request models continue to reject unknown fields, and Java validation-only accessors are explicitly excluded from Jackson serialization. Real-HTTP integration tests inspect the emitted request body so internal Bean Validation helpers cannot silently become versioned API fields.
+- **Rationale:** The strict contract correctly exposed an accidental JavaBean property instead of allowing the Java and Python schemas to drift. Contract correctness belongs at the serializer boundary, not in permissive server parsing.
+- **Consequences:** `FeatureWindowRequest.isValidWindow()` remains the input invariant but is annotated `@JsonIgnore`; the ML request contains only the declared `ml_inference_v1` window fields.
+
+### D-012-008 — Register the existing pgvector type contract at every real connection boundary
+
+- **Date:** 2026-10-11
+- **Status:** Accepted
+- **Decision:** A real RAG-service database connection registers `pgvector.psycopg.register_vector` immediately after `psycopg.connect`, matching the existing ingestion database helper and Phase 9 repository expectation.
+- **Rationale:** Dense retrieval intentionally passes NumPy vectors to psycopg. The adapter is connection-scoped; omitting registration at a new serving boundary is an integration defect, not a reason to change vector representation or retrieval behavior.
+- **Consequences:** Phase 12 reuses the frozen retrieval implementation unchanged, while its long-lived service connection can adapt vector parameters correctly.

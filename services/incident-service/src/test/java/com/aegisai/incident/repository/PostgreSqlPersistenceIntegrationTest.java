@@ -32,6 +32,9 @@ class PostgreSqlPersistenceIntegrationTest extends PostgreSqlIntegrationTest {
     private TimelineEntryRepository timelineRepository;
 
     @Autowired
+    private IntelligenceRunRepository intelligenceRunRepository;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
@@ -39,16 +42,17 @@ class PostgreSqlPersistenceIntegrationTest extends PostgreSqlIntegrationTest {
 
     @BeforeEach
     void cleanDatabase() {
+        intelligenceRunRepository.deleteAll();
         timelineRepository.deleteAll();
         incidentRepository.deleteAll();
     }
 
     @Test
-    void flywayAppliedAllPhaseThreeMigrations() {
+    void flywayAppliedAllMigrations() {
         Integer migrationCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM flyway_schema_history WHERE success = true",
                 Integer.class);
-        assertThat(migrationCount).isEqualTo(6);
+        assertThat(migrationCount).isEqualTo(7);
     }
 
     @Test

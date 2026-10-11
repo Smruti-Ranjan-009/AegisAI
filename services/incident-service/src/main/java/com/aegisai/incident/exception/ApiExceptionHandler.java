@@ -29,6 +29,22 @@ public class ApiExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, "incident_not_found", exception.getMessage(), request);
     }
 
+    @ExceptionHandler(IntelligenceRunNotFoundException.class)
+    ProblemDetail handleIntelligenceNotFound(
+            IntelligenceRunNotFoundException exception,
+            HttpServletRequest request) {
+        return problem(HttpStatus.NOT_FOUND, "intelligence_run_not_found", exception.getMessage(), request);
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    ProblemDetail handleIntelligenceInput(IllegalArgumentException exception, HttpServletRequest request) {
+        return problem(
+                HttpStatus.BAD_REQUEST,
+                "intelligence_input_invalid",
+                exception.getMessage(),
+                request);
+    }
+
     @ExceptionHandler(InvalidIncidentTransitionException.class)
     ProblemDetail handleInvalidTransition(
             InvalidIncidentTransitionException exception,

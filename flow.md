@@ -690,3 +690,63 @@ rag/knowledge/**/*.md
 expects the vector type. `inspect` remains database- and model-independent.
 `validate --smoke-query` checks stored normalization/dimensions and issues only
 the exact distance query needed to prove the vector contract.
+## Phase 12 unified incident-intelligence flow
+
+```text
+POST /api/v1/incidents/{incidentId}/intelligence-runs
+  -> incident-service validates incident + intelligence_v1 request
+  -> canonical semantic JSON -> SHA-256 request_hash
+  -> insert PENDING run (unique incident_id + request_hash)
+       duplicate/replay -> return existing run without another model call
+  -> persist RUNNING + INTELLIGENCE_STARTED timeline event
+  -> MlServiceClient (X-Correlation-ID, finite timeout)
+       POST ml-service /api/v1/inference/analyze
+       -> validate ml_inference_v1 + exact frozen feature order/window metadata
+       -> anomaly provider scores every window
+       -> no anomaly: skip classifier
+       -> anomaly: aggregate frozen top-three representation and classify
+  -> no anomaly -> persist NO_ANOMALY_SIGNAL + timeline; stop
+  -> RagServiceClient (same X-Correlation-ID, finite timeout, no retry)
+       POST rag-service /api/v1/diagnose
+       -> validate rag_diagnosis_v1 structured incident context
+       -> incident_query_v1 deterministic neutral query
+       -> Phase 9 hybrid retrieval (no predicted-class hard filter)
+       -> Phase 10 cross-encoder reranking -> top-five evidence
+       -> Phase 10 local Qwen -> strict schema/citation validation
+       -> reconstruct citation source metadata server-side
+  -> map grounded / abstention / failure to explicit run state
+  -> persist bounded ML, intelligence, lineage, timings JSONB
+  -> append existing incident timeline event
+  -> return typed advisory run with X-Correlation-ID
+```
+
+`GET /health` proves each Python process is alive. `GET /ready` proves its selected providers are usable. Model and service URLs come only from trusted configuration. Raw telemetry remains upstream of the Phase 4 feature-engineering boundary; Phase 12 accepts only the existing frozen model-ready representation.
+
+The Java-to-Python boundary is strict: Jackson emits only declared versioned fields,
+validation-only accessors are excluded from JSON, and Python rejects unknown fields.
+The real-HTTP integration suite inspects the serialized ML request to prevent schema
+drift at this boundary.
+
+### Final Phase 12 real-validation path
+
+```text
+five unchanged captured Phase 4-compatible fault-family inputs
+  -> fresh input identities: *-validation-final-20261011
+  -> all five cross the frozen anomaly threshold
+  -> all five run the frozen classifier
+  -> all five reach real Phase 9/10 RAG composition
+       cpu_saturation       -> GROUNDED_ADVISORY (5 citations)
+       memory_leak          -> GROUNDED_ADVISORY (1 citation)
+       service_failure      -> GROUNDED_ADVISORY (5 citations)
+       dependency_failure   -> FAILED_VALIDATION (citation coverage rejected)
+       high_latency         -> GROUNDED_ADVISORY (5 citations)
+  -> every terminal state and bounded result persists in PostgreSQL
+```
+
+The failed dependency result is part of the verified flow, not a prediction
+adjustment target. Local Qwen returned structured output, the unchanged Phase 10
+validator rejected its claim/citation mismatch, the RAG boundary returned a
+bounded 422, and Java recorded `FAILED_VALIDATION`. It did not return a false
+success or retry generation. The ignored validation report is
+`.runtime/phase12-real-validation.json`; Phase 11 write-once final artifacts were
+read/validated only and never regenerated.
